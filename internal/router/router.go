@@ -18,7 +18,10 @@ func Router() *http.ServeMux {
             logger.Fatal("JELLYFIN_HOST environment variable is not set")
         }
 
-        mediaProxy, err := util.MakeReverseProxy("http://localhost:5000")
+        // Some features are not implemented so just redirect it back to jellyfin
+        // don't worry there is no infinite loop here because it doesn't go though
+        // the reverse proxy and directly reaches out to the jellyfin server.
+        mediaProxy, err := util.MakeReverseProxy("http://localhost:8096")
         if err != nil {
             logger.Panic("Failed to make reverse proxy:", err)
         }
