@@ -6,6 +6,9 @@ import (
     "github.com/jelius-sama/logger"
 )
 
+// TODO:
+// 1. Implement getting video file details from ID
+// 2. Integrate with S3 compatible storage like R2, S3
 func ApplyVideosPatch(r *http.Request) {
     logger.Info("Applying videos patch, original path:", r.URL.Path)
 
