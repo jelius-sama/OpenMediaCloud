@@ -1,8 +1,8 @@
 package handler
 
 import (
-    "context"
     "encoding/json"
+    "errors"
     "fmt"
     "net/http"
     "os"
@@ -22,7 +22,7 @@ type itemDetails struct {
 // getItemPath queries Jellyfin for the file path of a given itemId.
 // It returns the raw filesystem path that Jellyfin has on record, e.g:
 //
-//	/media/akane edit __ capsize.mp4
+//	/AMVs/some_video.mp4
 func getItemPath(itemId string) (string, error) {
     endpoint := fmt.Sprintf("%s/Items/%s?UserId=%s", os.Getenv("JELLYFIN_HOST"), itemId, os.Getenv("JELLYFIN_USER_ID"))
 
@@ -67,44 +67,34 @@ func extractItemId(urlPath string) (string, error) {
     return parts[2], nil
 }
 
-func ApplyVideosPatch(w http.ResponseWriter, r *http.Request, s3Client *s3.S3Client) {
-    logger.Info("Applying videos patch, original path:", r.URL.Path)
+func ApplyVideosPatch(w http.ResponseWriter, r *http.Request, s3Client *s3.S3Client) error {
+    logger.Debug("Applying videos patch, original path:", r.URL.Path)
 
     itemId, err := extractItemId(r.URL.Path)
     if err != nil {
-        http.Error(w, "Bad Request", http.StatusBadRequest)
-        logger.Fatal("Failed to extract itemId:", err)
+        return errors.New("Failed to extract itemId: " + err.Error())
     }
-    logger.Info("Extracted itemId:", itemId)
+    logger.Debug("Extracted itemId:", itemId)
 
     filePath, err := getItemPath(itemId)
     if err != nil {
-        http.Error(w, "Failed to resolve media path", http.StatusInternalServerError)
-        logger.Fatal("Failed to get item path from Jellyfin:", err)
+        return errors.New("Failed to get item path from Jellyfin: " + err.Error())
     }
-    logger.Info("Jellyfin returned file path:", filePath)
+    filePath = strings.TrimPrefix(filePath, "/")
+    filePath = strings.TrimSuffix(filePath, "/")
+    logger.Debug("Jellyfin returned file path:", filePath)
 
-    // Strip the Jellyfin media mount prefix to get the S3 object key.
-    // e.g. "/media/akane edit __ capsize.mp4" -> "akane edit __ capsize.mp4"
-    // TODO: When on R2, update this prefix to match your rclone mount path,
-    //       e.g. strings.TrimPrefix(filePath, "/mnt/r2/")
-    objectKey := strings.TrimPrefix(filePath, "/media/") // INFO: Jellyfin sees as /media/ (because it uses docker, I can do stuff like this)
-    // INFO: In actuality the object is stored in /media-tmp/ directory (In S3 terms it is not a directory BTW but who really cares).
-    objectKey = "media-tmp/" + objectKey // FIX: Because in my current setup jellyfin directory and S3 directory doesn't match
-    logger.Info("Resolved S3 object key:", objectKey)
-
-    presignedURL, err := s3Client.CreateSignedURL(context.TODO(), objectKey, nil)
+    presignedURL, err := s3Client.CreateSignedURL(r.Context(), filePath, nil)
     if err != nil {
-        http.Error(w, "Failed to generate media URL", http.StatusInternalServerError)
-        // TODO: Instead of crashing handle 404 like jellyfin server would
-        logger.Fatal("Failed to create presigned URL:", err)
+        return errors.New("Failed to create presigned URL: " + err.Error())
     }
-    logger.Okay("S3 URL:", presignedURL)
+    logger.Debug("S3 URL:", presignedURL)
 
     // Redirect the client directly to S3.
     // From this point the client fetches the video bytes straight from S3,
     // our EC2 server is no longer in the data path.
     http.Redirect(w, r, presignedURL, http.StatusTemporaryRedirect)
-    logger.Okay("Redirected client to S3 for object:", objectKey)
+    logger.Okay("Redirected client to S3 for object:", filePath)
+    return nil
 }
 

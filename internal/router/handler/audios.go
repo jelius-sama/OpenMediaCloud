@@ -7,6 +7,6 @@ import (
 )
 
 func ApplyAudiosPatch(r *http.Request) {
-    logger.Debug("TODO: Implement patch to caught the audio path")
+    logger.Debug("TODO: Implement patch to the caught audio path")
 }
 

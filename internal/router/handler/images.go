@@ -7,6 +7,6 @@ import (
 )
 
 func ApplyImagePatch(r *http.Request) {
-    logger.Debug("TODO: Implement patch to the caught video path")
+    logger.Debug("TODO: Implement patch to the caught image path")
 }
 

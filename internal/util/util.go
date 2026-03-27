@@ -8,40 +8,45 @@ import (
     "regexp"
 )
 
-// TODO: Handle these URLs:
-// Streaming / Playback:
-// /Videos/{itemId}/stream
-// /Videos/{itemId}/stream.{container}
-// /Audio/{itemId}/stream
-// /Audio/{itemId}/stream.{container}
-// /Items/{itemId}/Download
-//
-// HLS (adaptive streaming):
-// /Videos/{itemId}/master.m3u8
-// /Videos/{itemId}/main.m3u8
-// /Audio/{itemId}/hls/...
-//
-// Images (thumbnails, posters):
-// /Items/{itemId}/Images/{imageType}
-
+/*
+ * EXAMPLE:
+ * /Videos/877d0f740648605d91c17d147a9a9ff8/stream
+ * /Videos/{id}/stream.{container}
+ */
 var videoPaths = []*regexp.Regexp{
     regexp.MustCompile(`^/Videos/[^/]+/stream$`),
     regexp.MustCompile(`^/Videos/[^/]+/stream\.[a-zA-Z0-9]+$`),
 }
 
-var hlsPaths = []*regexp.Regexp{}
+/*
+ * EXAMPLE:
+ * /videos/877d0f74-0648-605d-91c1-7d147a9a9ff8/master.m3u8
+ * /videos/877d0f74-0648-605d-91c1-7d147a9a9ff8/main.m3u8
+ * /videos/877d0f74-0648-605d-91c1-7d147a9a9ff8/hls1/main/0.mp4
+ */
+var hlsPaths = []*regexp.Regexp{
+    regexp.MustCompile(`^/videos/[^/]+/master\.m3u8$`),
+    regexp.MustCompile(`^/videos/[^/]+/main\.m3u8$`),
+    regexp.MustCompile(`^/videos/[^/]+/hls[^/]+/main/-?\d+\.[a-zA-Z0-9]+$`),
+}
 
+// /Items/877d0f740648605d91c17d147a9a9ff8/Images/Primary
+// /Items/{itemId}/Images/{imageType}
 var imagePaths = []*regexp.Regexp{}
 
-var streamPaths = []*regexp.Regexp{}
+// /Items/{itemId}/Download
+var downloadPaths = []*regexp.Regexp{}
 
+// /Audio/{itemId}/hls/...
+// /Audio/{itemId}/stream.{container}
+// /Audio/{itemId}/stream
 var audioPaths = []*regexp.Regexp{}
 
 type PathKindT = int8
 
 const (
     PathKindVideos PathKindT = iota
-    PathKindStreams
+    PathKindDownloads
     PathKindAudios
     PathKindImage
     PathKindHLS
@@ -54,9 +59,9 @@ func ShouldForward(path string) (bool, PathKindT) {
         }
     }
 
-    for _, pattern := range streamPaths {
+    for _, pattern := range downloadPaths {
         if pattern.MatchString(path) {
-            return true, PathKindStreams
+            return true, PathKindDownloads
         }
     }
 
