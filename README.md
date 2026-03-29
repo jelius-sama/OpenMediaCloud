@@ -25,9 +25,6 @@ ClientToR2 proxies all requests to Jellyfin as normal, except for media stream r
 1. The item ID is extracted from the request URL.
 2. Jellyfin's API is queried to resolve the item ID to a file path.
 3. The file path is used to construct an S3 object key.
-> [!NOTE]
-> There are certain rules to be followed if you want the by default solution to work on your setup.
-> Those rules are regarding how you setup your media file path, more will be updated in a future doc.
 4. A presigned URL is generated pointing directly to the object in R2/S3.
 5. The client is redirected (HTTP 307) to that presigned URL.
 
@@ -165,3 +162,47 @@ If your Docker target is `/Anime` but your bucket folder is named `Anime Series`
 ## Future improvement
 
 A future release will introduce environment variables to explicitly map Jellyfin paths to S3 paths, removing this naming constraint. For now, the simplest solution is to ensure your bucket folder names match your Docker volume target names before ingesting media.
+
+# Web Client Compatibility — Container Format and Codec
+
+## TL;DR
+
+If you want the Jellyfin web client to work correctly, store your media as **H.264 video, AAC audio, MP4 container, with faststart enabled**. MKV will not stream correctly in the browser regardless of codec or how the file is optimized, it will play BUT you will be using 2x the amount of data of your video file size (Eg. for 1.5GB size video you will end up using 3GB).
+
+## Background
+
+During development, extensive investigation was conducted into why the web client experienced a 3–5 minute delay before playback. The investigation went through several hypotheses before arriving at a definitive answer.
+
+**What was ruled out:**
+- The 307 redirect to S3 — the unbounded range request originated from the browser itself before any redirect occurred
+- Container seek header placement — optimizing the MKV with `mkclean` to move seek headers to the front made no difference
+- Jellyfin server coordination — Jellyfin simply serves whatever byte range it is asked for, it does not do anything special to help the browser locate the resume position
+- Proxy architecture — the issue reproduces identically whether Jellyfin handles the request directly or the proxy redirects to S3
+
+**What was confirmed:**
+
+Testing with an MP4 file under the same conditions produced completely different behavior. The browser made three precise range requests:
+
+1. A small read from the start of the file to locate and parse the `moov` atom
+2. A small read from the end of the file to retrieve remaining index data
+3. A direct read from the correct resume position for actual playback
+
+The browser closed the first connection after receiving only ~34KB despite the server advertising the full file size. No pre-downloading occurred. Playback began from the correct position immediately.
+
+The same browser with the MKV file downloaded the entire 1.50GB file before beginning playback.
+
+**Root cause:**
+
+The browser's MP4 parser is mature and performs surgical byte range reads to navigate the container structure with minimal data transfer. The browser does not have an equivalent MKV implementation and falls back to a linear download of the entire file instead.
+
+This is a browser limitation and cannot be addressed at the proxy level.
+
+## Recommendations
+
+**For web client users:**
+
+Store media as MP4 with H.264 video and AAC audio. When encoding or remuxing, using faststart flag would not make much difference as the browser already know how to properly parse mp4 container as such as long as you make sure that your video is a valid mp4 then the browser should handle the rest.
+
+**For native client users (SwiftFin, Jellyfin Media Player):**
+
+Native clients use platform media frameworks that handle MKV seeking correctly. Both MP4 and MKV work without issues and resume from the correct position within seconds. No specific encoding requirement applies.
