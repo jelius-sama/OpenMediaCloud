@@ -42,6 +42,10 @@ var hlsPaths = []*regexp.Regexp{
 
 // /Items/877d0f740648605d91c17d147a9a9ff8/Images/Primary
 // /Items/{itemId}/Images/{imageType}
+// INFO: Since image files are relatively small in size I doubt we really
+//       need a solution for this part of the problem. This feature may
+//       not be implemented or even if it were to be implemented it would be
+//       very much at a later point as it is not a priority feature.
 /* NOTE: Jellyfin does not really store images in a very accessible place
  * it is stored in it's cache directory, we could just make the cache
  * directory an rclone mount but that may slow things down, this is

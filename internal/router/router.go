@@ -25,12 +25,16 @@ func Router() *http.ServeMux {
             return
         }
 
-        // TODO: Handle Authentication
-
         kind := util.ForwardTo(r.URL.Path)
 
         switch kind {
         case util.PathKindMedia:
+            if err := handler.CheckAuthStatus(r); err != nil {
+                logger.Warning(err)
+                http.Error(w, "401 Unauthorized", http.StatusUnauthorized)
+                return
+            }
+
             s3Client := s3.NewS3Client(os.Getenv("BUCKET_NAME"))
             logger.Okay("Caught media request:", r.Method, r.URL.Path)
             // NOTE: If the handler encountered an error it means two things:
@@ -62,6 +66,12 @@ func Router() *http.ServeMux {
             }
 
         case util.PathKindMediaInfo:
+            if err := handler.CheckAuthStatus(r); err != nil {
+                logger.Warning(err)
+                http.Error(w, "401 Unauthorized", http.StatusUnauthorized)
+                return
+            }
+
             logger.Okay("Caught media info request:", r.Method, r.URL.Path)
             originalDirector := jellyfinProxy.Director
             jellyfinProxy.Director = func(req *http.Request) {
@@ -73,6 +83,12 @@ func Router() *http.ServeMux {
             jellyfinProxy.ServeHTTP(w, r)
 
         case util.PathKindHLS:
+            if err := handler.CheckAuthStatus(r); err != nil {
+                logger.Warning(err)
+                http.Error(w, "401 Unauthorized", http.StatusUnauthorized)
+                return
+            }
+
             s3Client := s3.NewS3Client(os.Getenv("BUCKET_NAME"))
             // NOTE: This will break web version of jellyfin, Swiftfin an iOS app for jellyfin works though.
             // FIX: For the above breaking feature, we have implemented media info route interception which
@@ -85,10 +101,17 @@ func Router() *http.ServeMux {
             }
 
         case util.PathKindDownloads:
+            if err := handler.CheckAuthStatus(r); err != nil {
+                logger.Warning(err)
+                http.Error(w, "401 Unauthorized", http.StatusUnauthorized)
+                return
+            }
+
             logger.Okay("Caught download request:", r.Method, r.URL.Path)
             handler.ApplyDownloadsPatch(w, r, jellyfinProxy)
 
         case util.PathKindImage:
+            logger.Debug("Don't forget to check for auth status.")
             logger.Okay("TODO: Caught image request:", r.Method, r.URL.Path)
             handler.ApplyImagePatch(r)
             jellyfinProxy.ServeHTTP(w, r)
