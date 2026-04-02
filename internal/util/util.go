@@ -39,14 +39,16 @@ var hlsPaths = []*regexp.Regexp{
 var imagePaths = []*regexp.Regexp{}
 
 // /Items/{itemId}/Download
-var downloadPaths = []*regexp.Regexp{}
+var downloadPaths = []*regexp.Regexp{
+    regexp.MustCompile(`^/Items/[^/]+/Download$`),
+}
 
 // /Audio/{itemId}/hls/...
 // /Audio/{itemId}/stream.{container}
 // /Audio/{itemId}/stream
 var audioPaths = []*regexp.Regexp{}
 
-type PathKindT = int8
+type PathKindT = uint8
 
 const (
     PathKindVideos PathKindT = iota
@@ -55,46 +57,47 @@ const (
     PathKindAudios
     PathKindImage
     PathKindHLS
+    PathKindDefault
 )
 
-func ShouldForward(path string) (bool, PathKindT) {
+func ForwardTo(path string) PathKindT {
     for _, pattern := range videoPaths {
         if pattern.MatchString(path) {
-            return true, PathKindVideos
+            return PathKindVideos
         }
     }
 
     for _, pattern := range mediaInfoPath {
         if pattern.MatchString(path) {
-            return true, PathKindMediaInfo
+            return PathKindMediaInfo
         }
     }
 
     for _, pattern := range downloadPaths {
         if pattern.MatchString(path) {
-            return true, PathKindDownloads
+            return PathKindDownloads
         }
     }
 
     for _, pattern := range audioPaths {
         if pattern.MatchString(path) {
-            return true, PathKindAudios
+            return PathKindAudios
         }
     }
 
     for _, pattern := range hlsPaths {
         if pattern.MatchString(path) {
-            return true, PathKindHLS
+            return PathKindHLS
         }
     }
 
     for _, pattern := range imagePaths {
         if pattern.MatchString(path) {
-            return true, PathKindImage
+            return PathKindImage
         }
     }
 
-    return false, -1
+    return PathKindDefault
 }
 
 func MakeReverseProxy(target string) (*httputil.ReverseProxy, error) {

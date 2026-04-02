@@ -60,6 +60,11 @@ func (s3Client *S3Client) CreateSignedURL(ctx context.Context, objectKey string,
         contentType = fallbackContentType
     }
 
+    disposition, ok := ctx.Value("disposition").(string)
+    if !ok {
+        disposition = "inline"
+    }
+
     presignedResult, err := presignClient.PresignGetObject(ctx,
         &s3.GetObjectInput{
             Bucket: aws.String(s3Client.Bucket),
@@ -67,7 +72,7 @@ func (s3Client *S3Client) CreateSignedURL(ctx context.Context, objectKey string,
 
             // This tells R2 to send back this header, forcing the browser to view it
             ResponseContentType:        aws.String(*contentType),
-            ResponseContentDisposition: aws.String("inline"),
+            ResponseContentDisposition: aws.String(disposition),
         },
         s3.WithPresignExpires(time.Hour),
     )

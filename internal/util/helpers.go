@@ -1,17 +1,12 @@
-package handler
+package util
 
 import (
     "encoding/json"
-    "errors"
     "fmt"
     "net/http"
     "os"
     "path"
     "strings"
-
-    "ClientToR2/internal/s3"
-
-    "github.com/jelius-sama/logger"
 )
 
 // itemDetails holds only the fields we care about from /Items/{itemId} response.
@@ -23,7 +18,7 @@ type itemDetails struct {
 // It returns the raw filesystem path that Jellyfin has on record, e.g:
 //
 //	/AMVs/some_video.mp4
-func getItemPath(itemId string) (string, error) {
+func GetItemPath(itemId string) (string, error) {
     endpoint := fmt.Sprintf("%s/Items/%s?UserId=%s", os.Getenv("JELLYFIN_HOST"), itemId, os.Getenv("JELLYFIN_USER_ID"))
 
     req, err := http.NewRequest("GET", endpoint, nil)
@@ -56,45 +51,25 @@ func getItemPath(itemId string) (string, error) {
 }
 
 // extractItemId pulls the itemId out of a path like /Videos/{itemId}/stream
-func extractItemId(urlPath string) (string, error) {
+func ExtractItemId(pattern, urlPath string) (string, error) {
     parts := strings.Split(path.Clean(urlPath), "/")
+    parsedPattern := strings.Split(path.Clean(pattern), "/")
+    var idIndex int = -1
 
-    // Expected: ["", "Videos", "{itemId}", "stream"]
-    if len(parts) < 3 {
+    for i := range parsedPattern {
+        if strings.HasPrefix(parsedPattern[i], "{") && strings.HasSuffix(parsedPattern[i], "}") {
+            idIndex = i
+            break
+        }
+    }
+    if idIndex == -1 {
         return "", fmt.Errorf("unexpected path format: %s", urlPath)
     }
 
-    return parts[2], nil
-}
-
-func ApplyVideosPatch(w http.ResponseWriter, r *http.Request, s3Client *s3.S3Client) error {
-    logger.Debug("Applying videos patch, original path:", r.URL.Path)
-
-    itemId, err := extractItemId(r.URL.Path)
-    if err != nil {
-        return errors.New("Failed to extract itemId: " + err.Error())
+    if len(parts) < len(parsedPattern) {
+        return "", fmt.Errorf("unexpected path format: %s", urlPath)
     }
-    logger.Debug("Extracted itemId:", itemId)
 
-    filePath, err := getItemPath(itemId)
-    if err != nil {
-        return errors.New("Failed to get item path from Jellyfin: " + err.Error())
-    }
-    filePath = strings.TrimPrefix(filePath, "/")
-    filePath = strings.TrimSuffix(filePath, "/")
-    logger.Debug("Jellyfin returned file path:", filePath)
-
-    presignedURL, err := s3Client.CreateSignedURL(r.Context(), filePath, nil)
-    if err != nil {
-        return errors.New("Failed to create presigned URL: " + err.Error())
-    }
-    logger.Debug("S3 URL:", presignedURL)
-
-    // Redirect the client directly to S3.
-    // From this point the client fetches the video bytes straight from S3,
-    // our EC2 server is no longer in the data path.
-    http.Redirect(w, r, presignedURL, http.StatusTemporaryRedirect)
-    logger.Okay("Redirected client to S3 for object:", filePath)
-    return nil
+    return parts[idIndex], nil
 }
 
