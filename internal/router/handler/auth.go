@@ -15,18 +15,22 @@ func extractToken(r *http.Request) string {
         return token
     }
 
-    // Check Authorization header (format: "MediaBrowser Token=abc123, ...")
-    if auth := r.Header.Get("Authorization"); auth != "" {
-        for part := range strings.SplitSeq(auth, ",") {
-            part = strings.TrimSpace(part)
-            part, _ = strings.CutPrefix(part, "Token=")
-            return strings.Trim(part, "\"")
-        }
-    }
-
     // Check query parameter
     if token := r.URL.Query().Get("ApiKey"); token != "" {
         return token
+    }
+
+    // Check Authorization header (format: "MediaBrowser Token=abc123, ...")
+    if auth := r.Header.Get("Authorization"); auth != "" {
+        logger.Debug("Auth header:", auth)
+
+        for part := range strings.SplitSeq(auth, ",") {
+            part = strings.TrimSpace(part)
+
+            if token, ok := strings.CutPrefix(part, "Token="); ok {
+                return strings.Trim(token, "\"")
+            }
+        }
     }
 
     return ""
@@ -47,6 +51,7 @@ func CheckAuthStatus(r *http.Request) error {
         return fmt.Errorf("failed to build auth request: %w", err)
     }
 
+    logger.Debug("Client token:", extractToken(r))
     req.Header.Set("X-Emby-Token", extractToken(r))
 
     resp, err := http.DefaultClient.Do(req)

@@ -19,7 +19,7 @@ func Router() *http.ServeMux {
             logger.Panic("Failed to make reverse proxy:", err)
         }
 
-        if r.Method != http.MethodGet {
+        if (r.Method != http.MethodGet) && (r.Method != http.MethodPost) {
             logger.Info("Forwarding to Jellyfin:", r.Method, r.URL.Path)
             jellyfinProxy.ServeHTTP(w, r)
             return

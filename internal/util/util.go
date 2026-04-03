@@ -136,6 +136,11 @@ func EnsureENV() error {
         errs = errs + "\tJELLYFIN_USER_ID is not set\n"
     }
 
+    if val := os.Getenv("AWS_REGION"); len(val) == 0 {
+        errCount++
+        errs = errs + "\tAWS_REGION is not set\n"
+    }
+
     if val := os.Getenv("ACCESS_KEY_ID"); len(val) == 0 {
         errCount++
         errs = errs + "\tACCESS_KEY_ID is not set\n"
@@ -144,11 +149,6 @@ func EnsureENV() error {
     if val := os.Getenv("SECRET_ACCESS_KEY"); len(val) == 0 {
         errCount++
         errs = errs + "\tSECRET_ACCESS_KEY is not set\n"
-    }
-
-    if val := os.Getenv("ACCOUNT_ID"); len(val) == 0 {
-        errCount++
-        errs = errs + "\tACCOUNT_ID is not set\n"
     }
 
     if val := os.Getenv("BUCKET_NAME"); len(val) == 0 {

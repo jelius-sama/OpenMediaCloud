@@ -1,10 +1,16 @@
 # ClientToR2
 
+> [!NOTE]
+> Better names being considered:
+> `CloudJelly`, `CloudFin`, `OpenFin`, `OpenJelly`, `JellyCloud`
+> Names starting with `Fin` are avoided as they sound Fintech-related.
+
 A lightweight proxy that sits in front of a [Jellyfin](https://jellyfin.org) media server and redirects media requests directly to S3-compatible object storage (Cloudflare R2, AWS S3, etc.), bypassing the host server for media delivery entirely.
 
 > [!NOTE]
-> Though this application can sit in front of your jellyfin server it is recommended that you use a reverse proxy like caddy.
-> Caddy can automatically manage TLS certificates, where as, our application does not and only focusses on handling the media redirection.
+> Though this application can sit directly in front of your Jellyfin server, it is recommended that you place a reverse proxy like [Caddy](https://caddyserver.com) in front of it. Caddy can automatically manage TLS certificates, whereas this application focuses solely on media redirection.
+
+---
 
 ## Why does this exist?
 
@@ -14,13 +20,15 @@ When you run Jellyfin on a cloud VM (such as AWS EC2) and store media on object 
 Client → EC2 (Jellyfin) → R2 → EC2 (rclone) → Client
 ```
 
-This means every byte of video your users or you watch passes through your VM twice — once to fetch it from R2, and once to send it to the client. Moreover, for AWS EC2 users, AWS charges for outbound data transfer from EC2, and those costs add up quickly for a media server.
+Every byte of video passes through your VM twice — once fetched from R2, once sent to the client. AWS charges for outbound EC2 data transfer, and those costs add up quickly for a media server.
 
 Cloudflare R2 has no egress fees, but only if the client fetches directly from R2. ClientToR2 makes that possible without replacing Jellyfin.
 
+---
+
 ## How it works
 
-ClientToR2 proxies all requests to Jellyfin as normal, except for media stream requests. When a media request is detected:
+ClientToR2 proxies all requests to Jellyfin as normal, except for media requests. When a media request is detected:
 
 1. The item ID is extracted from the request URL.
 2. Jellyfin's API is queried to resolve the item ID to a file path.
@@ -28,16 +36,15 @@ ClientToR2 proxies all requests to Jellyfin as normal, except for media stream r
 4. A presigned URL is generated pointing directly to the object in R2/S3.
 5. The client is redirected (HTTP 307) to that presigned URL.
 
-From that point, the client fetches media bytes directly from R2. The VM handles only the tiny redirect response.
+From that point, the client fetches media bytes directly from R2/S3. The VM handles only the tiny redirect response.
 
 ```
 Client → EC2 (ClientToR2) → 307 redirect → R2/S3 → Client
 ```
 
-## Simplified Architecture Diagram
+### Architecture Diagram
 
 ```
-
            ┌────────────────────────────────────────────────────┐
            │            ┌────────────────────────────────┐      │
            ▼            │           EC2 Instance         │      │
@@ -63,72 +70,47 @@ Jellyfin server Response│            │                   │      │
                             EC2 not involved)
 ```
 
-## Tradeoffs
+---
 
-### Tradeoffs that could improve
+## What works
 
-**No adaptive bitrate streaming (HLS) support**
-Jellyfin uses ffmpeg to transcode media into HLS segments for clients with limited bandwidth or compatibility requirements. Since ClientToR2 redirects to the raw file on R2, transcoding is bypassed entirely. Clients that require HLS (such as the Jellyfin web client) may fall back to retrying or fail to play. The implemented solution is intercepting the `/Items/{id}/PlaybackInfo` response and nudging clients toward direct stream mode.
-By intercepting the `/Items/{id}/PlaybackInfo` API to force Direct Stream mode, the proxy effectively bypasses the server's ability to transcode or decode media on behalf of the client.
-Because R2/S3 serves the file directly, your client must natively support the original media format (codec/container). If the client cannot decode the source file, playback will fail. For the best experience, it is recommended to use widely supported video formats or a high-compatibility client (see the Codec Support section below for details).
-
-**No quality selection**
-Because media is served directly from R2 as the original file, users cannot select a lower quality stream when on a slow connection. Jellyfin's quality ladder relies on real-time transcoding through the server, which this architecture intentionally bypasses.
-
-### TODOs
-
-**Image and audio routes not yet intercepted**
-Thumbnails, posters, and audio streams are still proxied through the VM. These are relatively small in size but could also be served directly from R2 (if you store the images there, usually jellyfin stores them in it's cache folder which may need to be mounted with rclone as well) with additional work following the same pattern as video.
-
-### Tradeoffs that are architectural constraints
-
-**Presigned URLs are visible to the client**
-When the client is redirected to R2, the presigned URL is visible in the browser or app network logs. Presigned URLs are time-limited (default 1 hour) and scoped to a single object, so the risk is low, but they cannot be fully hidden by design — the client must have a URL it can fetch from directly.
-
-**EC2 to R2 FUSE mount latency**
-Jellyfin reads media metadata and generates thumbnails through the rclone FUSE mount. This means Jellyfin still fetches data from R2 for non-stream operations, which has higher latency than a local disk. This is inherent to using object storage as a filesystem and cannot be solved without a different storage architecture.
-
-## Environment Variables
-
-| Variable | Description |
-|---|---|
-| `JELLYFIN_HOST` | Full URL of your local Jellyfin server, e.g. `http://localhost:8096` |
-| `JELLYFIN_API_KEY` | Jellyfin API key created under Admin → API Keys |
-| `JELLYFIN_USER_ID` | Jellyfin user ID used to scope item lookups |
-| `ACCESS_KEY_ID` | S3 / R2 access key ID |
-| `SECRET_ACCESS_KEY` | S3 / R2 secret access key |
-| `ACCOUNT_ID` | Cloudflare account ID |
-| `AWS_REGION` | AWS region (S3 only, e.g. `us-east-1`). R2 uses `auto` |
-| `S3_BUCKET` | Name of the S3 / R2 bucket storing your media |
-
-## Switching between R2 and S3
-
-The codebase targets R2 by default. To use AWS S3 temporarily, update `NewS3Client` in `internal/s3`:
-
-- Remove the custom `BaseEndpoint` and `UsePathStyle` options
-- Change the region from `auto` to your AWS region via `AWS_REGION`
-
-Revert both changes when switching back to R2.
-
-# Codec Support
-
-ClientToR2 redirects clients directly to the raw media file in R2/S3. There is no transcoding layer — the server does not decode or re-encode video on your behalf. What is stored in your bucket is exactly what the client receives.
-
-This means playback success depends entirely on two things:
-
-1. **Your client must natively support the codec of your media.** Native apps such as Infuse or SwiftFin tend to have broad codec support. Browser-based clients are limited to what the browser can decode, which typically means H264 and VP9 but not HEVC (especially 10-bit or 12-bit profiles) or AV1 on older devices.
-
-2. **Your media should ideally be stored in a widely compatible format.** If broad client support matters to you, encode your media in H264 (High Profile, 8-bit) with AAC audio in an MP4 container. This combination plays on virtually every client without issues.
-
-If a client cannot decode your media's codec, playback will fail silently or with a generic error. There is no fallback — this is an inherent constraint of the direct-redirect architecture.
+- **Video streaming** — intercepted and redirected to R2/S3 via presigned URL
+- **Audio streaming** — intercepted and redirected to R2/S3 via presigned URL
+- **Downloads** — intercepted and redirected to R2/S3 via presigned URL
+- **Authentication** — client tokens are validated against Jellyfin before any media redirect is issued
+- **HLS / Direct stream negotiation** — the `/Items/{id}/PlaybackInfo` response is patched to force direct stream mode, bypassing transcoding entirely
+- **Everything else** — forwarded transparently to Jellyfin (metadata, images, search, user management, etc.)
 
 ---
 
-# Storage Path Requirements
+## Tradeoffs
 
-ClientToR2 resolves media by taking the file path that Jellyfin reports and using it directly as the S3/R2 object key. For this to work, **the directory structure visible to Jellyfin must match the directory structure in your bucket exactly**.
+### Potential to improve
 
-## Example of a working setup
+**No adaptive bitrate streaming**
+By forcing direct stream mode via `PlaybackInfo` patching, transcoding is bypassed entirely. Users on slow connections cannot fall back to a lower quality stream. Jellyfin's quality ladder relies on real-time transcoding through the server, which this architecture intentionally skips.
+
+**Image serving still goes through the VM**
+Thumbnails and posters are forwarded to Jellyfin and served through your VM. Images are small so the egress cost is negligible, but a future implementation could cache them in R2 using a key-value store to track which images have already been uploaded, serving subsequent requests via presigned URL the same way video is handled.
+
+### Architectural constraints
+
+**Presigned URLs are visible to the client**
+When the client is redirected to R2, the presigned URL is visible in browser and app network logs. Presigned URLs are time-limited (default 1 hour) and scoped to a single object so the practical risk is low, but they cannot be fully hidden — the client must have a URL it can fetch from directly.
+
+**EC2 to R2 FUSE mount latency**
+Jellyfin reads media metadata and generates thumbnails through the rclone FUSE mount. Non-stream operations still go through the mount, which has higher latency than local disk. This is inherent to using object storage as a filesystem and cannot be solved without a fundamentally different storage architecture.
+
+> [!NOTE]
+> rclone's `--vfs-cache-mode` option can partially mitigate this by caching frequently accessed files locally on the VM, reducing latency for repeated metadata operations.
+
+---
+
+## Storage Path Requirements
+
+ClientToR2 resolves media by taking the file path Jellyfin reports and using it directly as the S3/R2 object key. For this to work, **the directory structure visible to Jellyfin inside Docker must match the directory structure in your bucket exactly**.
+
+### Example of a working setup
 
 Jellyfin Docker volume mounts:
 ```yaml
@@ -140,8 +122,9 @@ volumes:
   - source: /mnt/media/HAnime
     target: /HAnime
 ```
+
 > [!NOTE]
-> `/mnt/media` is [rclone](https://github.com/rclone/rclone) mount of your R2/S3 storage bucket.
+> `/mnt/media` is an [rclone](https://github.com/rclone/rclone) mount of your R2/S3 storage bucket.
 
 Bucket structure:
 ```
@@ -153,56 +136,63 @@ your-media-bucket/
 
 Jellyfin sees the file at `/AMVs/akane edit __ capsize.mp4`. ClientToR2 strips the leading slash and uses `AMVs/akane edit __ capsize.mp4` as the S3 object key. The bucket must have the object at that exact key.
 
-## Common mistake
+### Common mistake
 
-If your Docker target is `/Anime` but your bucket folder is named `Anime Series`, the key will not resolve and playback will fail with a 404 from S3.
+If your Docker target is `/Anime` but your bucket folder is named `Anime Series`, the object key will not resolve and playback will fail with a 404 from S3.
 
-**The Docker target name and the bucket folder name must be identical.**
+**The Docker volume target name and the bucket folder name must be identical.**
 
-## Future improvement
+> [!NOTE]
+> A future release will introduce environment variables to explicitly map Jellyfin paths to S3 paths, removing this naming constraint entirely.
 
-A future release will introduce environment variables to explicitly map Jellyfin paths to S3 paths, removing this naming constraint. For now, the simplest solution is to ensure your bucket folder names match your Docker volume target names before ingesting media.
+---
 
-# Web Client Compatibility — Container Format and Codec
+## Codec and Container Support
 
-## TL;DR
+ClientToR2 redirects clients directly to the raw media file in R2/S3. There is no transcoding layer — what is stored in your bucket is exactly what the client receives. Playback success depends entirely on whether the client can natively decode the source file.
 
-If you want the Jellyfin web client to work correctly, store your media as **H.264 video, AAC audio, MP4 container, with faststart enabled**. MKV will not stream correctly in the browser regardless of codec or how the file is optimized, it will play BUT you will be using 2x the amount of data of your video file size (Eg. for 1.5GB size video you will end up using 3GB).
+### Web client (browser)
 
-## Background
+The Jellyfin web client has a known limitation with MKV files — the browser downloads the entire file before beginning playback regardless of file size, seek headers, or any proxy-level optimization. This was confirmed through extensive testing and is a browser MKV parser limitation that cannot be addressed at the proxy level.
 
-During development, extensive investigation was conducted into why the web client experienced a 3–5 minute delay before playback. The investigation went through several hypotheses before arriving at a definitive answer.
+**Use MP4 with H.264 video and AAC audio for the web client.** The browser's MP4 parser is mature and performs surgical byte range reads to locate the resume position with minimal data transfer — typically under 100KB before playback begins.
 
-**What was ruled out:**
-- The 307 redirect to S3 — the unbounded range request originated from the browser itself before any redirect occurred
-- Container seek header placement — optimizing the MKV with `mkclean` to move seek headers to the front made no difference
-- Jellyfin server coordination — Jellyfin simply serves whatever byte range it is asked for, it does not do anything special to help the browser locate the resume position
-- Proxy architecture — the issue reproduces identically whether Jellyfin handles the request directly or the proxy redirects to S3
+MKV will play on the web client but will consume approximately 2x the file size in data transfer per session (e.g. a 1.5GB episode costs ~3GB of data transferred) due to the full pre-download.
 
-**What was confirmed:**
+### Native clients (SwiftFin, Jellyfin Media Player, Infuse)
 
-Testing with an MP4 file under the same conditions produced completely different behavior. The browser made three precise range requests:
+Native clients use platform media frameworks that handle both MP4 and MKV seeking correctly. They resume from the correct position within seconds regardless of container format. No specific encoding requirement applies.
 
-1. A small read from the start of the file to locate and parse the `moov` atom
-2. A small read from the end of the file to retrieve remaining index data
-3. A direct read from the correct resume position for actual playback
+### General recommendation
 
-The browser closed the first connection after receiving only ~34KB despite the server advertising the full file size. No pre-downloading occurred. Playback began from the correct position immediately.
+If broad client compatibility matters, encode media as H.264 (High Profile, 8-bit), AAC audio, MP4 container. This combination plays correctly on every tested client without issues.
 
-The same browser with the MKV file downloaded the entire 1.50GB file before beginning playback.
+---
 
-**Root cause:**
+## Environment Variables
 
-The browser's MP4 parser is mature and performs surgical byte range reads to navigate the container structure with minimal data transfer. The browser does not have an equivalent MKV implementation and falls back to a linear download of the entire file instead.
+| Variable | Description |
+|---|---|
+| `JELLYFIN_HOST` | Full URL of your local Jellyfin server, e.g. `http://localhost:8096` |
+| `JELLYFIN_API_KEY` | Jellyfin API key created under Admin → API Keys |
+| `JELLYFIN_USER_ID` | Jellyfin user ID used to scope item lookups via the Items API |
+| `ACCESS_KEY_ID` | S3 / R2 access key ID |
+| `SECRET_ACCESS_KEY` | S3 / R2 secret access key |
+| `AWS_REGION` | Storage region. R2 uses `auto`. AWS S3 uses a region code e.g. `us-east-1`. |
+| `BUCKET_NAME` | Name of the S3 / R2 bucket storing your media |
+| `BASE_URL` | In case you are not using AWS S3 you want to set the base URL as per your provider. (default: unset; uses AWS S3 endpoint as base) |
+| `CLOUDFRONT_ENDPOINT` | If set then uses Cloudfront instead of AWS S3. (default: unset; uses AWS S3) |
+| `CLOUDFRONT_KEY_PAIR_ID` | Key ID of your Public Key when using Cloudfront signed URL. |
+| `CLOUDFRONT_PRIVATE_KEY_PATH` | Absolute path to your Private Key associated with your Public key. |
 
-This is a browser limitation and cannot be addressed at the proxy level.
+---
 
-## Recommendations
+## Storage Backend Options
 
-**For web client users:**
+ClientToR2 targets any S3-compatible storage backend. The recommended option is Cloudflare R2 due to its zero egress fees, which is the primary motivation for this project.
 
-Store media as MP4 with H.264 video and AAC audio. When encoding or remuxing, using faststart flag would not make much difference as the browser already know how to properly parse mp4 container as such as long as you make sure that your video is a valid mp4 then the browser should handle the rest.
+**Cloudflare R2** — zero egress fees, S3-compatible, recommended default. Set `BASE_URL` and use region `auto`.
 
-**For native client users (SwiftFin, Jellyfin Media Player):**
+**AWS S3 with CloudFront** — if you prefer AWS, pairing S3 with a CloudFront distribution increases your effective free egress from 100GB to 1TB per month.
 
-Native clients use platform media frameworks that handle MKV seeking correctly. Both MP4 and MKV work without issues and resume from the correct position within seconds. No specific encoding requirement applies.
+**Other S3-compatible storage** — any S3-compatible provider (Backblaze B2, Wasabi, etc.) should work by pointing the custom `BASE_URL` at the provider's S3-compatible endpoint.
