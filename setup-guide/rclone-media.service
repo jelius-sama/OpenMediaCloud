@@ -1,0 +1,23 @@
+[Unit]
+Description=Rclone Mount for Media (/mnt/media)
+After=network-online.target mnt-ebs\x2dmp.mount
+Requires=mnt-ebs\x2dmp.mount
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ec2-user
+ExecStart=/usr/bin/rclone mount s3:your-media-bucket /mnt/media \
+    --allow-other \
+    --uid=1000 \
+    --gid=1000 \
+    --vfs-cache-mode writes \
+    --cache-dir /mnt/ebs/rclone-cache \
+    --vfs-cache-max-size 4G \
+    --vfs-cache-max-age 30m
+ExecStop=/bin/fusermount -u /mnt/media
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

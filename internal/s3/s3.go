@@ -38,7 +38,6 @@ func NewS3Client(bucket string) *S3Client {
         client = s3.NewFromConfig(cfg)
     } else {
         client = s3.NewFromConfig(cfg, func(o *s3.Options) {
-            // INFO: "https://" + os.Getenv("ACCOUNT_ID") + ".r2.cloudflarestorage.com"
             o.BaseEndpoint = aws.String(baseURL)
             o.UsePathStyle = true // This replaces S3ForcePathStyle
         })

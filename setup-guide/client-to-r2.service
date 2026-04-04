@@ -1,0 +1,14 @@
+[Unit]
+Description=Specialized Proxy for Jellyfin
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/ClientToR2
+Restart=always
+User=ec2-user
+Group=ec2-user
+
+[Install]
+WantedBy=multi-user.target

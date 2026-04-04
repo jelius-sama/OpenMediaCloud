@@ -1,0 +1,29 @@
+services:
+  jellyfin:
+    image: jellyfin/jellyfin
+    container_name: jellyfin
+    ports:
+      - 8096:8096/tcp
+      - 7359:7359/udp
+    volumes:
+      - /mnt/ebs/jellyfin/config:/config
+      - /mnt/ebs/jellyfin/cache:/cache
+      - type: bind
+        source: /mnt/media/AMVs
+        target: /AMVs
+        read_only: true
+      - type: bind
+        source: "/mnt/media/Anime Movies"
+        target: "/Anime Movies"
+        read_only: true
+      - type: bind
+        source: "/mnt/media/Anime Series"
+        target: "/Anime Series"
+        read_only: true
+      - type: bind
+        source: /mnt/media/HAnime
+        target: /HAnime
+        read_only: true
+    restart: 'unless-stopped'
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
