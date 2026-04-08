@@ -4,37 +4,9 @@ import (
     "fmt"
     "net/http"
     "os"
-    "strings"
 
     "github.com/jelius-sama/logger"
 )
-
-func extractToken(r *http.Request) string {
-    // Check header first
-    if token := r.Header.Get("X-Emby-Token"); token != "" {
-        return token
-    }
-
-    // Check query parameter
-    if token := r.URL.Query().Get("ApiKey"); token != "" {
-        return token
-    }
-
-    // Check Authorization header (format: "MediaBrowser Token=abc123, ...")
-    if auth := r.Header.Get("Authorization"); auth != "" {
-        logger.Debug("Auth header:", auth)
-
-        for part := range strings.SplitSeq(auth, ",") {
-            part = strings.TrimSpace(part)
-
-            if token, ok := strings.CutPrefix(part, "Token="); ok {
-                return strings.Trim(token, "\"")
-            }
-        }
-    }
-
-    return ""
-}
 
 func CheckAuthStatus(r *http.Request) error {
     userId := r.URL.Query().Get("UserId")
@@ -44,15 +16,21 @@ func CheckAuthStatus(r *http.Request) error {
         logger.Info("User with ID `" + userId + "` is trying to access media.")
     }
 
-    endpoint := fmt.Sprintf("%s/Users/Me", os.Getenv("JELLYFIN_HOST"))
-
-    req, err := http.NewRequest("GET", endpoint, nil)
+    req, err := http.NewRequest("GET", fmt.Sprintf("%s/Users/Me", os.Getenv("JELLYFIN_HOST")), nil)
     if err != nil {
         return fmt.Errorf("failed to build auth request: %w", err)
     }
 
-    logger.Debug("Client token:", extractToken(r))
-    req.Header.Set("X-Emby-Token", extractToken(r))
+    if token := r.URL.Query().Get("ApiKey"); token != "" {
+        logger.Debug("Client token:", token)
+        req.Header.Set("X-Emby-Token", token)
+    } else {
+        for _, headerName := range []string{"Authorization", "X-Emby-Token"} {
+            if val := r.Header.Get(headerName); val != "" {
+                req.Header.Set(headerName, val)
+            }
+        }
+    }
 
     resp, err := http.DefaultClient.Do(req)
     if err != nil {
