@@ -1,11 +1,6 @@
-# ClientToR2
+# OpenMediaCloud
 
-> [!NOTE]
-> Better names being considered:
-> `CloudJelly`, `CloudFin`, `OpenFin`, `OpenJelly`, `JellyCloud`
-> Names starting with `Fin` are avoided as they sound Fintech-related.
-
-A lightweight proxy that sits in front of a [Jellyfin](https://jellyfin.org) media server and redirects media requests directly to S3-compatible object storage (Cloudflare R2, AWS S3, etc.), bypassing the host server for media delivery entirely.
+A lightweight proxy that sits in front of a [Jellyfin](https://jellyfin.org) media server and redirects media requests directly to S3-compatible object storage (Cloudflare R2, AWS S3, etc.) or Cloudfront, bypassing the host server for media delivery entirely.
 
 > [!NOTE]
 > Though this application can sit directly in front of your Jellyfin server, it is recommended that you place a reverse proxy like [Caddy](https://caddyserver.com) in front of it. Caddy can automatically manage TLS certificates, whereas this application focuses solely on media redirection.
@@ -22,13 +17,13 @@ Client → EC2 (Jellyfin) → R2 → EC2 (rclone) → Client
 
 Every byte of video passes through your VM twice — once fetched from R2, once sent to the client. AWS charges for outbound EC2 data transfer, and those costs add up quickly for a media server.
 
-Cloudflare R2 has no egress fees, but only if the client fetches directly from R2. ClientToR2 makes that possible without replacing Jellyfin.
+Cloudflare R2 has no egress fees, but only if the client fetches directly from R2. OpenMediaCloud makes that possible without replacing Jellyfin.
 
 ---
 
 ## How it works
 
-ClientToR2 proxies all requests to Jellyfin as normal, except for media requests. When a media request is detected:
+OpenMediaCloud proxies all requests to Jellyfin as normal, except for media requests. When a media request is detected:
 
 1. The item ID is extracted from the request URL.
 2. Jellyfin's API is queried to resolve the item ID to a file path.
@@ -39,7 +34,7 @@ ClientToR2 proxies all requests to Jellyfin as normal, except for media requests
 From that point, the client fetches media bytes directly from R2/S3. The VM handles only the tiny redirect response.
 
 ```
-Client → EC2 (ClientToR2) → 307 redirect → R2/S3 → Client
+Client → EC2 (OpenMediaCloud) → 307 redirect → R2/S3 → Client
 ```
 
 ### Architecture Diagram
@@ -49,7 +44,7 @@ Client → EC2 (ClientToR2) → 307 redirect → R2/S3 → Client
            │            ┌────────────────────────────────┐      │
            ▼            │           EC2 Instance         │      │
 R2/S3 Server Response   │                                │      │
-   Client Request ─────►│    ClientToR2 (this project)   │      │
+   Client Request ─────►│        OpenMediaCloud          │      │
 Jellyfin server Response│            │                   │      │
         ▲               │    ┌───────┴────────┐          │      │
         │               │    │ Media request? │          │      │
@@ -108,7 +103,7 @@ Jellyfin reads media metadata and generates thumbnails through the rclone FUSE m
 
 ## Storage Path Requirements
 
-ClientToR2 resolves media by taking the file path Jellyfin reports and using it directly as the S3/R2 object key. For this to work, **the directory structure visible to Jellyfin inside Docker must match the directory structure in your bucket exactly**.
+OpenMediaCloud resolves media by taking the file path Jellyfin reports and using it directly as the S3/R2 object key. For this to work, **the directory structure visible to Jellyfin inside Docker must match the directory structure in your bucket exactly**.
 
 ### Example of a working setup
 
@@ -134,7 +129,7 @@ your-media-bucket/
 └── HAnime/
 ```
 
-Jellyfin sees the file at `/AMVs/akane edit __ capsize.mp4`. ClientToR2 strips the leading slash and uses `AMVs/akane edit __ capsize.mp4` as the S3 object key. The bucket must have the object at that exact key.
+Jellyfin sees the file at `/AMVs/akane edit __ capsize.mp4`. OpenMediaCloud strips the leading slash and uses `AMVs/akane edit __ capsize.mp4` as the S3 object key. The bucket must have the object at that exact key.
 
 ### Common mistake
 
@@ -149,7 +144,7 @@ If your Docker target is `/Anime` but your bucket folder is named `Anime Series`
 
 ## Codec and Container Support
 
-ClientToR2 redirects clients directly to the raw media file in R2/S3. There is no transcoding layer — what is stored in your bucket is exactly what the client receives. Playback success depends entirely on whether the client can natively decode the source file.
+OpenMediaCloud redirects clients directly to the raw media file in R2/S3. There is no transcoding layer — what is stored in your bucket is exactly what the client receives. Playback success depends entirely on whether the client can natively decode the source file.
 
 ### Web client (browser)
 
@@ -189,7 +184,7 @@ If broad client compatibility matters, encode media as H.264 (High Profile, 8-bi
 
 ## Storage Backend Options
 
-ClientToR2 targets any S3-compatible storage backend. The recommended option is Cloudflare R2 due to its zero egress fees, which is the primary motivation for this project.
+OpenMediaCloud targets any S3-compatible storage backend. The recommended option is Cloudflare R2 due to its zero egress fees, which is the primary motivation for this project.
 
 **Cloudflare R2** — zero egress fees, S3-compatible, recommended default. Set `BASE_URL` and use region `auto`.
 

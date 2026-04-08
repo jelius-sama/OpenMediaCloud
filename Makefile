@@ -5,7 +5,7 @@ GOFLAGS_DEV  := -ldflags "-s -w -X main.IS_PROD=FALSE -X main.PORT=:8000" -trimp
 
 .PHONY: run build release
 
-APP_NAME := ClientToR2
+APP_NAME := OpenMediaCloud
 BUILD := ./bin
 ENTRY := ./cmd/
 

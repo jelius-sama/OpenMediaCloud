@@ -1,8 +1,8 @@
 package handler
 
 import (
-    "ClientToR2/internal/s3"
     "context"
+    "github.com/jelius-sama/OpenMediaCloud/internal/s3"
     "net/http"
     "net/http/httputil"
     "os"

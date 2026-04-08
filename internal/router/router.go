@@ -1,9 +1,9 @@
 package router
 
 import (
-    "ClientToR2/internal/router/handler"
-    "ClientToR2/internal/s3"
-    "ClientToR2/internal/util"
+    "github.com/jelius-sama/OpenMediaCloud/internal/router/handler"
+    "github.com/jelius-sama/OpenMediaCloud/internal/s3"
+    "github.com/jelius-sama/OpenMediaCloud/internal/util"
     "net/http"
     "os"
 

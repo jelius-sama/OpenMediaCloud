@@ -5,8 +5,8 @@ import (
     "net/http"
     "strings"
 
-    "ClientToR2/internal/s3"
-    "ClientToR2/internal/util"
+    "github.com/jelius-sama/OpenMediaCloud/internal/s3"
+    "github.com/jelius-sama/OpenMediaCloud/internal/util"
 
     "github.com/jelius-sama/logger"
 )
