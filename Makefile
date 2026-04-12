@@ -14,7 +14,7 @@ run:
 
 build:
 	mkdir -p $(BUILD)
-	$(GOC) build $(GOFLAGS_PROD) -o $(BUILD)/$(APP_NAME) $(ENTRY)
+	$(GOC) build $(GOFLAGS_DEV) -o $(BUILD)/$(APP_NAME) $(ENTRY)
 
 PLATFORMS = \
 	linux-arm \
