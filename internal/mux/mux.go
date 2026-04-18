@@ -48,7 +48,7 @@ func Multiplexer() *http.ServeMux {
         }
 
         if r.Host == HostKomga.ToString() {
-            logger.Warning("It seems that you are using Immich, please note that this project does not yet implement features to support Immich and is in active development. The only usable service currently at this point is Jellyfin")
+            logger.Warning("It seems that you are using Komga, please note that this project does not yet implement features to support Komga and is in active development. The only usable service currently at this point is Jellyfin")
             http.Error(w, "Feature Not Implemented", http.StatusNotImplemented)
             return
         }
