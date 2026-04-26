@@ -3,6 +3,7 @@ package main
 import (
     "bytes"
     "context"
+    "errors"
     "fmt"
     "net/http"
     "os"
@@ -19,7 +20,7 @@ import (
     "github.com/joho/godotenv"
 )
 
-const VERSION = "v3.0.0"
+const VERSION = "v0.1.0"
 
 var (
     // Set at compile time (use makefile)
@@ -123,13 +124,19 @@ func (w *configWatchDogT) Start() {
             }
 
             if events.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Rename) != 0 {
-                //Wait a tiny bit for the OS to finish the file swap
-                time.Sleep(100 * time.Millisecond)
                 watcher.Add(w.ActivePath) // Helps prevent dangling reference
 
-                if err = godotenv.Overload(w.ActivePath); err != nil {
-                    logger.Error("Detected a change in", w.ActivePath+".", "\nDue to errors, changes to environment will not be applied.\n\t", err)
-                    continue
+                // Try 10 times, each time with a sleep of 10ms
+                for range 10 {
+                    if err = godotenv.Overload(w.ActivePath); err != nil {
+                        if errors.Is(err, os.ErrNotExist) {
+                            time.Sleep(10 * time.Millisecond) // sleep for 10ms
+                            continue
+                        }
+                        logger.Error("Detected a change in", w.ActivePath+".", "\nDue to errors, changes to environment will not be applied.\n\t", err)
+                        break
+                    }
+                    break
                 }
 
                 if err = util.EnsureENV(); err != nil {

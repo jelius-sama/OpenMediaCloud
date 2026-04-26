@@ -6,11 +6,7 @@
 > - My usage patterns may not cover all edge cases.
 > - Unexpected usage patterns may reveal bugs I never encountered.
 > - Bugs I never encountered are bugs I never knew existed — and never fixed.
-> - The major version started at `1.x.x` instead of `0.x.x`, which goes against SemVer.
-> - I never actually read the SemVer spec — I learned it by word of mouth.
-> - Because of that, I missed the rule about `0.x.x` being for unstable/beta development.
-> - Breaking changes during development forced a major version bump, landing it at `2.x.x`.
-> - A higher version number does not mean it is more stable.
+> - Pre-1.0 convention: breaking changes bump the minor version, not the major.
 
 A lightweight proxy that sits in front of a [Jellyfin](https://jellyfin.org) media server and redirects media requests directly to S3-compatible object storage (Cloudflare R2, AWS S3, etc.) or Cloudfront, bypassing the host server for media delivery entirely.
 

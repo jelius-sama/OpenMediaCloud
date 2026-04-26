@@ -17,6 +17,8 @@ const (
     FlagV Flag = iota
     FlagP
     FlagEnv
+    FlagOut
+    FlagIn
 )
 
 func (f Flag) Short() string {
@@ -27,6 +29,10 @@ func (f Flag) Short() string {
         return "p"
     case FlagEnv:
         return "env"
+    case FlagOut:
+        return "o"
+    case FlagIn:
+        return "i"
     }
     logger.Panic("unreachable: f.Short()")
     return ""
@@ -40,6 +46,10 @@ func (f Flag) Long() string {
         return "port"
     case FlagEnv:
         return "env"
+    case FlagOut:
+        return "o"
+    case FlagIn:
+        return "i"
     }
     logger.Panic("unreachable: f.Long()")
     return ""
@@ -59,10 +69,14 @@ func handleFlags() bool {
         return true
     }
 
+    if len(os.Args) > 1 && os.Args[1] == "cloudfront" {
+        handleCloudfrontCmd(flag.NewFlagSet("cloudfront", flag.ExitOnError))
+        return true
+    }
+
     flag.Usage = func() {
         w := flag.CommandLine.Output()
         GlobalHelp(w)
-        // flag.PrintDefaults()
         fmt.Fprintf(w, "\nFor more information, visit https://github.com/jelius-sama/OpenMediaCloud\n")
     }
 
@@ -118,7 +132,7 @@ func handleGenCmd(set *flag.FlagSet) {
         fmt.Fprintf(w, "\nExample:\n  OpenMediaCloud gen service -o /etc/systemd/system/OpenMediaCloud.service\n")
         fmt.Fprintf(w, "\nFor more information, visit https://github.com/jelius-sama/OpenMediaCloud\n")
     }
-    genOut := set.String("o", "", "Output file path (default: stdout)")
+    genOut := set.String(FlagOut.Long(), "", "Output file path (default: stdout)")
 
     // Check for the second-level command (env or service)
     if len(os.Args) < 3 {
@@ -141,12 +155,12 @@ func handleGenCmd(set *flag.FlagSet) {
     case "-h", "--h", "-help", "--help":
         set.Usage()
     default:
+        set.Usage()
         logger.Fatal("\r"+"Unknown generation target:", subCommand)
     }
 
     if genOut != nil && len(*genOut) != 0 {
-        err := os.WriteFile(*genOut, []byte(content), 0644)
-        if err != nil {
+        if err := os.WriteFile(*genOut, []byte(content), 0644); err != nil {
             logger.Error("\r"+"Error writing to file:", err.Error())
             logger.Info("\r" + content)
         } else {
@@ -154,6 +168,40 @@ func handleGenCmd(set *flag.FlagSet) {
         }
     } else {
         logger.Okay("\r" + content)
+    }
+}
+
+func handleCloudfrontCmd(set *flag.FlagSet) {
+    set.Usage = func() {
+        w := flag.CommandLine.Output()
+        fmt.Fprintf(w, "Usage: OpenMediaCloud cloudfront [cp <path> <path>|ls <path>]\n\n")
+        fmt.Fprintf(w, "\nExample:\n  OpenMediaCloud cloudfront ls /Anime/ \n")
+        fmt.Fprintf(w, "\nExample:\n  OpenMediaCloud cloudfront cp /Anime/* ~/Downloads/ \n")
+        fmt.Fprintf(w, "\nFor more information, visit https://github.com/jelius-sama/OpenMediaCloud\n")
+    }
+
+    subCommand := os.Args[2]
+
+    switch subCommand {
+    case "ls":
+        if len(os.Args) < 4 {
+            logger.Fatal("\r" + "expected <path> after 'ls'")
+        }
+
+        items := decodePath(os.Args[3], 100)
+        for i := len(items) - 1; i >= 0; i-- {
+            logger.Okay("\r", items[i])
+        }
+    case "cp":
+        if len(os.Args) < 5 {
+            logger.Fatal("\r" + "expected <input path> and <output path> after 'cp'")
+        }
+        logger.Debug("TODO: Implement cloudfront cp command.")
+    case "-h", "--h", "-help", "--help":
+        set.Usage()
+    default:
+        set.Usage()
+        logger.Fatal("\r"+"Unknown command:", subCommand)
     }
 }
 

@@ -30,6 +30,7 @@ func Router(w http.ResponseWriter, r *http.Request) {
         logger.Panic("Failed to make reverse proxy:", err)
     }
 
+    // TODO: Handle methods more robustly.
     if (r.Method != http.MethodGet) && (r.Method != http.MethodPost) {
         logger.Info("Forwarding to Jellyfin:", r.Method, r.URL.Path)
         jellyfinProxy.ServeHTTP(w, r)
