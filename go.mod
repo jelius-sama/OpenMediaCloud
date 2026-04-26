@@ -8,6 +8,8 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.12
 	github.com/aws/aws-sdk-go-v2/feature/cloudfront/sign v1.9.21
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.97.1
+	github.com/fsnotify/fsnotify v1.9.0
+	github.com/jelius-sama/logger v1.5.0
 	github.com/joho/godotenv v1.5.1
 )
 
@@ -27,5 +29,5 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.17 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.41.9 // indirect
 	github.com/aws/smithy-go v1.24.2 // indirect
-	github.com/jelius-sama/logger v1.5.0 // indirect
+	golang.org/x/sys v0.13.0 // indirect
 )

@@ -156,6 +156,32 @@ func EnsureENV() error {
         errs = errs + "\tBUCKET_NAME is not set\n"
     }
 
+    if upstreamJellyfinHost, upstreamImmichHost, upstreamKomgaHost := os.Getenv("UPSTREAM_JELLYFIN_HOST"), os.Getenv("UPSTREAM_IMMICH_HOST"), os.Getenv("UPSTREAM_KOMGA_HOST"); len(upstreamImmichHost) == 0 && len(upstreamJellyfinHost) == 0 && len(upstreamKomgaHost) == 0 {
+        errCount++
+        errs = errs + "\tNone of the following is set\n" + "\t\tUPSTREAM_JELLYFIN_HOST\n" + "\t\tUPSTREAM_IMMICH_HOST\n" + "\t\tUPSTREAM_KOMGA_HOST\n" + "\tPlease set at least one upstream hostname.\n"
+    } else {
+        if len(upstreamJellyfinHost) > 0 {
+            if err := ValidateHost(upstreamJellyfinHost); err != nil {
+                errCount++
+                errs = errs + "\tUPSTREAM_JELLYFIN_HOST:\n\t\t" + err.Error() + "\n"
+            }
+        }
+
+        if len(upstreamImmichHost) > 0 {
+            if err := ValidateHost(upstreamImmichHost); err != nil {
+                errCount++
+                errs = errs + "\tUPSTREAM_KOMGA_HOST:\n\t\t" + err.Error() + "\n"
+            }
+        }
+
+        if len(upstreamKomgaHost) > 0 {
+            if err := ValidateHost(upstreamKomgaHost); err != nil {
+                errCount++
+                errs = errs + "\tUPSTREAM_KOMGA_HOST:\n\t\t" + err.Error() + "\n"
+            }
+        }
+    }
+
     if errCount > 0 {
         return errors.New(errs)
     }

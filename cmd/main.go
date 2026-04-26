@@ -1,7 +1,9 @@
 package main
 
 import (
+    "bytes"
     "context"
+    "errors"
     "fmt"
     "net/http"
     "os"
@@ -10,14 +12,15 @@ import (
     "syscall"
     "time"
 
-    "github.com/jelius-sama/OpenMediaCloud/internal/router"
+    "github.com/fsnotify/fsnotify"
+    "github.com/jelius-sama/OpenMediaCloud/internal/mux"
     "github.com/jelius-sama/OpenMediaCloud/internal/util"
 
     "github.com/jelius-sama/logger"
     "github.com/joho/godotenv"
 )
 
-const VERSION = "v2.1.0"
+const VERSION = "v0.1.0"
 
 var (
     // Set at compile time (use makefile)
@@ -25,6 +28,12 @@ var (
     PORT          string
     CustomEnvPath *string
 )
+
+type configWatchDogT struct {
+    ActivePath string
+}
+
+var configWatchDogC = &configWatchDogT{}
 
 func init() {
     logger.Configure(logger.Cnf{
@@ -44,9 +53,12 @@ func init() {
         if err := godotenv.Load(*CustomEnvPath); err != nil {
             logger.Fatal(err)
         }
+        configWatchDogC.ActivePath = *CustomEnvPath
     } else {
         loadFromEtc := func() error {
-            return godotenv.Load(filepath.Join("/etc", "OpenMediaCloud", ".env"))
+            path := filepath.Join("/etc", "OpenMediaCloud", ".env")
+            configWatchDogC.ActivePath = path
+            return godotenv.Load(path)
         }
 
         userHome, err := os.UserHomeDir()
@@ -58,11 +70,87 @@ func init() {
                 logger.Fatal("Error loading environment variables.")
             }
         } else {
-            err = godotenv.Load(filepath.Join(userHome, ".config", "OpenMediaCloud", ".env"))
+            path := filepath.Join(userHome, ".config", "OpenMediaCloud", ".env")
+            err = godotenv.Load(path)
+            configWatchDogC.ActivePath = path
             if err != nil {
                 err = loadFromEtc()
                 if err != nil {
                     logger.Fatal("Error loading environment variables.")
+                }
+            }
+        }
+    }
+}
+
+// TODO: Handle unsetting of environment variables.
+// Also consider triggering a "reload" of the watchdog if
+// the watcher channel somehow gets killed.
+func (w *configWatchDogT) Start() {
+    var prevConf []byte
+    var err error
+
+    setPrevConf := func() {
+        prevConf, err = os.ReadFile(w.ActivePath)
+        if err != nil {
+            logger.Fatal("failed to read environment file\n\tFile is either deleted or something very serious is wrong.\n\tHow could we manage to read before?")
+        }
+    }
+
+    setPrevConf() // call at least once
+
+    watcher, err := fsnotify.NewWatcher()
+    if err != nil {
+        logger.Error("failed to watch environment file, live reloading disabled.")
+        return
+    }
+
+    defer watcher.Close()
+    watcher.Add(w.ActivePath)
+
+    for {
+        select {
+        case err, ok := <-watcher.Errors:
+            if !ok {
+                logger.Error("Watcher engine shut down. Live reload is now disabled.")
+                return
+            }
+            logger.Error("config watchdog error:", err)
+
+        case events, ok := <-watcher.Events:
+            if !ok {
+                logger.Error("Encounter an error, any future changes to environment file will not be applied or watched.")
+                return
+            }
+
+            if events.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Rename) != 0 {
+                watcher.Add(w.ActivePath) // Helps prevent dangling reference
+
+                // Try 10 times, each time with a sleep of 10ms
+                for range 10 {
+                    if err = godotenv.Overload(w.ActivePath); err != nil {
+                        if errors.Is(err, os.ErrNotExist) {
+                            time.Sleep(10 * time.Millisecond) // sleep for 10ms
+                            continue
+                        }
+                        logger.Error("Detected a change in", w.ActivePath+".", "\nDue to errors, changes to environment will not be applied.\n\t", err)
+                        break
+                    }
+                    break
+                }
+
+                if err = util.EnsureENV(); err != nil {
+                    envMap, err := godotenv.Parse(bytes.NewReader(prevConf))
+                    if err != nil {
+                        logger.Fatal("BUG Encountered, logically this should not have happened but it still did.")
+                    }
+
+                    for key, value := range envMap {
+                        os.Setenv(key, value)
+                    }
+                } else {
+                    setPrevConf()
+                    logger.Okay("Detected a change in environment file, successfully updated the configuration")
                 }
             }
         }
@@ -74,6 +162,7 @@ func main() {
     if err != nil {
         logger.Fatal(err)
     }
+    go configWatchDogC.Start()
 
     if keyPair, privKeyPath := os.Getenv("CLOUDFRONT_KEY_PAIR_ID"), os.Getenv("CLOUDFRONT_PRIVATE_KEY_PATH"); len(keyPair) != 0 && len(privKeyPath) != 0 {
         // NOTE: os.Stat doesn't necessarily mean we have read permission.
@@ -92,7 +181,7 @@ func main() {
 
     var server *http.Server = &http.Server{
         Addr:    PORT,
-        Handler: router.Router(),
+        Handler: mux.Multiplexer(),
     }
 
     go func() {

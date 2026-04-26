@@ -33,3 +33,32 @@ Handle media assets that live alongside the video file but outside the container
 ### 4 — Path mapping via environment variables
 
 Allow users to define explicit mappings between Jellyfin-visible paths and S3 object key prefixes through environment variables, removing the current requirement that Docker volume target names match bucket folder names exactly. This would make the setup more flexible and less error-prone for users whose existing bucket structure does not align with their Docker volume naming.
+
+## Immich
+Immich has official API documentation at `https://api.immich.app/` — that's the best place to browse everything interactively.
+
+---
+
+Here are all the endpoints that deliver heavy media files specifically:
+
+**Asset viewing/streaming**
+- `GET /api/assets/{id}/original` — downloads the original full-resolution photo or video file
+- `GET /api/assets/{id}/thumbnail` — retrieves the thumbnail (lighter but still media)
+- `GET /api/assets/{id}/video/playback` — streams video for playback
+
+**Download**
+- `GET /api/assets/{id}/original` — same endpoint, used for direct download
+- `POST /api/download/archive` — downloads multiple assets as a `.zip` stream, accepts a list of asset UUIDs or an album ID
+
+**Upload (inbound heavy media)**
+- `POST /api/assets` — uploads a new asset as `multipart/form-data` with the binary file
+
+**Profile/person images**
+- `GET /api/people/{id}/thumbnail` — face/person thumbnail
+
+**Albums**
+- No direct media delivery, but `POST /api/download/archive` accepts `albumId` to download an entire album as zip
+
+---
+
+The full OpenAPI spec has over 400 endpoints across 30+ functional categories — for anything beyond media delivery the official docs at `api.immich.app` are the most complete reference.

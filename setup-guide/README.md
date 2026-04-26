@@ -67,6 +67,11 @@ CLOUDFRONT_ENDPOINT=""
 CLOUDFRONT_KEY_PAIR_ID=""
 # Must be an absolute path. The file itself can be anywhere on the filesystem.
 CLOUDFRONT_PRIVATE_KEY_PATH="/home/your-user/.config/OpenMediaCloud/private_key.pem"
+
+# For multi-service configuration you can configure the router using the config below.
+UPSTREAM_JELLYFIN_HOST=tv.example.com
+UPSTREAM_IMMICH_HOST=photos.example.com
+UPSTREAM_KOMGA_HOST=manga.example.com
 ```
 
 > **Where to find these values:**

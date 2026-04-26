@@ -1,5 +1,13 @@
 # OpenMediaCloud
 
+> [!WARNING]
+> **This project is in Beta.** A few things to be aware of:
+> - I use it daily, but I would not recommend it for general use just yet.
+> - My usage patterns may not cover all edge cases.
+> - Unexpected usage patterns may reveal bugs I never encountered.
+> - Bugs I never encountered are bugs I never knew existed — and never fixed.
+> - Pre-1.0 convention: breaking changes bump the minor version, not the major.
+
 A lightweight proxy that sits in front of a [Jellyfin](https://jellyfin.org) media server and redirects media requests directly to S3-compatible object storage (Cloudflare R2, AWS S3, etc.) or Cloudfront, bypassing the host server for media delivery entirely.
 
 > [!NOTE]

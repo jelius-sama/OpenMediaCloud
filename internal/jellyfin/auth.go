@@ -1,4 +1,4 @@
-package handler
+package jellyfin
 
 import (
     "fmt"
@@ -21,12 +21,22 @@ func CheckAuthStatus(r *http.Request) error {
         return fmt.Errorf("failed to build auth request: %w", err)
     }
 
-    if token := r.URL.Query().Get("ApiKey"); token != "" {
-        logger.Debug("Client token:", token)
-        req.Header.Set("X-Emby-Token", token)
+    // NOTE: Do not blindly follow jellyfin's documentation.
+    //       In the docs they mention the API key header to be "ApiKey",
+    //       in practise though it is not "ApiKey" but rather "api_key".
+    if token, token2 := r.URL.Query().Get("ApiKey"), r.URL.Query().Get("api_key"); len(token) != 0 || len(token2) != 0 {
+        if len(token) != 0 {
+            logger.Debug("Client token:", token)
+            req.Header.Set("X-Emby-Token", token)
+        } else {
+            logger.Debug("Client token:", token2)
+            req.Header.Set("X-Emby-Token", token2)
+        }
     } else {
+        logger.Debug("Auth Header:\n\r")
         for _, headerName := range []string{"Authorization", "X-Emby-Token"} {
-            if val := r.Header.Get(headerName); val != "" {
+            if val := r.Header.Get(headerName); len(val) != 0 {
+                logger.Debug(headerName, val)
                 req.Header.Set(headerName, val)
             }
         }
