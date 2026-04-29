@@ -9,27 +9,6 @@ permissions:
   contents: write
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 'stable'
-
-      - name: Make build script executable
-        run: make release -j$(( $(nproc) * 3 ))
-
-      - name: Upload all built binaries
-        uses: actions/upload-artifact@v4
-        with:
-          name: built-binaries
-          path: bin/*
-
   check:
     runs-on: ubuntu-latest
     outputs:
@@ -63,6 +42,29 @@ jobs:
           else
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
+
+  build:
+    needs: check
+    if: needs.check.outputs.should_skip != 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: Make build script executable
+        run: make release -j$(( $(nproc) * 3 ))
+
+      - name: Upload all built binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: built-binaries
+          path: bin/*
 
   release:
     needs: [build, check]
