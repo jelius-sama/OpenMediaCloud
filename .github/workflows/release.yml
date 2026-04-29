@@ -49,7 +49,7 @@ jobs:
           fi
 
   release:
-    needs: build, check
+    needs: [build, check]
     if: needs.check.outputs.should_skip != 'true'
     runs-on: ubuntu-latest
 
