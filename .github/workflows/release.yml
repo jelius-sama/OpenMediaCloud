@@ -30,9 +30,26 @@ jobs:
           name: built-binaries
           path: bin/*
 
+  check:
+    outputs:
+      should_skip: ${{ steps.decide.outputs.skip }}
+    steps:
+      - name: Extract version from main.go
+        id: version
+        run: |
+          VER=$(sed -n 's/^const VERSION = "\(v[0-9]*\.[0-9]*\.[0-9]*\)".*$/\1/p' ./cmd/main.go)
+          echo "ver=$VER" >> $GITHUB_OUTPUT
+
+      - name: Skip if version unchanged
+        run: |
+          if [ "${{ steps.version.outputs.ver }}" = "${{ steps.latest.outputs.latest }}" ]; then
+            echo "Version already released: ${{ steps.version.outputs.ver }}"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          fi
 
   release:
-    needs: build
+    needs: build, check
+    if: needs.check.outputs.should_skip != 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -48,19 +65,6 @@ jobs:
             | grep -oP '"tag_name":\s*"\K[^"]+' || echo "none")
 
           echo "latest=$LATEST" >> $GITHUB_OUTPUT
-
-      - name: Extract version from main.go
-        id: version
-        run: |
-          VER=$(sed -n 's/^const VERSION = "\(v[0-9]*\.[0-9]*\.[0-9]*\)".*$/\1/p' ./cmd/main.go)
-          echo "ver=$VER" >> $GITHUB_OUTPUT
-
-      - name: Skip if version unchanged
-        run: |
-          if [ "${{ steps.version.outputs.ver }}" = "${{ steps.latest.outputs.latest }}" ]; then
-            echo "Version already released: ${{ steps.version.outputs.ver }}"
-            exit 1
-          fi
 
       - name: Extract commit message
         id: commit_msg

@@ -1,7 +1,8 @@
 GOC := go
 
+# NOTE: By default any and all builds will be a debug build by default, only once a stable release has been made this will change.
 GOFLAGS_PROD := -ldflags "-s -w -X main.IS_PROD=TRUE  -X main.PORT=:8000" -trimpath -buildvcs=false
-GOFLAGS_DEV  := -ldflags "-s -w -X main.IS_PROD=FALSE -X main.PORT=:8000" -trimpath -buildvcs=false
+GOFLAGS_DEV  := -ldflags "-X main.IS_PROD=FALSE -X main.PORT=:8000" -trimpath -buildvcs=false
 
 .PHONY: run build release
 
@@ -46,5 +47,5 @@ $(PLATFORMS):
 	mkdir -p $(BUILD)
 	GOOS=$(word 1,$(subst -, ,$@)) \
 	GOARCH=$(word 2,$(subst -, ,$@)) \
-	$(GOC) build $(GOFLAGS_PROD) \
+	$(GOC) build $(GOFLAGS_DEV) \
 	-o $(BUILD)/$(APP_NAME)-$@ $(ENTRY)
