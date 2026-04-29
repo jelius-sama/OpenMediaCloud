@@ -55,7 +55,7 @@ jobs:
           echo "latest=$LATEST" >> $GITHUB_OUTPUT
 
       - name: Skip if version unchanged
-      - id: decide
+        id: decide
         run: |
           if [ "${{ steps.version.outputs.ver }}" = "${{ steps.latest.outputs.latest }}" ]; then
             echo "Version already released: ${{ steps.version.outputs.ver }}"
