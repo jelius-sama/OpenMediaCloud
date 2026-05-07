@@ -187,6 +187,10 @@ If broad client compatibility matters, encode media as H.264 (High Profile, 8-bi
 | `CLOUDFRONT_ENDPOINT` | If set then uses Cloudfront instead of AWS S3. (default: unset; uses AWS S3) |
 | `CLOUDFRONT_KEY_PAIR_ID` | Key ID of your Public Key when using Cloudfront signed URL. |
 | `CLOUDFRONT_PRIVATE_KEY_PATH` | Absolute path to your Private Key associated with your Public key. |
+| `UPSTREAM_JELLYFIN_HOST` | URL of the upstream Jellyfin Host, e.g. `tv.example.com` |
+| `UPSTREAM_IMMICH_HOST` | URL of the upstream Immich Host, e.g. `photos.example.com` |
+| `UPSTREAM_KOMGA_HOST ` | URL of the upstream Komga Host, e.g. `komga.example.com` |
+| `IMMICH_HOST` | Full URL of your local Jellyfin server, e.g. `http://localhost:2283`  |
 
 ---
 

@@ -79,12 +79,15 @@ func GlobalHelp(w io.Writer) {
   `+cyan+`OpenMediaCloud`+reset+`                           Start the proxy server
   `+cyan+`OpenMediaCloud`+reset+` [options]                 Start with options
   `+cyan+`OpenMediaCloud`+reset+` gen <subcommand>          Generate a template file
+  `+cyan+`OpenMediaCloud`+reset+` cloudfront <subcommand>   List and Copy files from AWS S3 bucket through Cloudfront 
 
 `+bold+white+`COMMANDS`+reset+`
   `+green+bold+`gen env`+reset+`                            Print a .env template to stdout
   `+green+bold+`gen env -o      <path>`+reset+`             Write .env template to a file
   `+green+bold+`gen service`+reset+`                        Print a systemd service template to stdout
   `+green+bold+`gen service -o  <path>`+reset+`             Write systemd service template to a file
+  `+green+bold+`cloudfront ls   <path>`+reset+`             List files in AWS S3 bucket
+  `+green+bold+`cloudfront cp   <path> <path>`+reset+`      Copy files from AWS S3 bucket using Cloudfront
 
 `+bold+white+`OPTIONS`+reset+`
   `+yellow+FlagEnv.String()+reset+`            <path>                Load environment variables from a custom path

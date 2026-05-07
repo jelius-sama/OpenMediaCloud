@@ -4,6 +4,7 @@ import (
     "net/http"
     "os"
 
+    "github.com/jelius-sama/OpenMediaCloud/internal/immich"
     "github.com/jelius-sama/OpenMediaCloud/internal/jellyfin"
     "github.com/jelius-sama/logger"
 )
@@ -40,13 +41,12 @@ func Multiplexer() *http.ServeMux {
             return
         }
 
-        // TODO: Implement router for immich and komga
         if r.Host == HostImmich.ToString() {
-            logger.Warning("It seems that you are using Immich, please note that this project does not yet implement features to support Immich and is in active development. The only usable service currently at this point is Jellyfin")
-            http.Error(w, "Feature Not Implemented", http.StatusNotImplemented)
+            immich.Router(w, r)
             return
         }
 
+        // TODO: Implement router for komga
         if r.Host == HostKomga.ToString() {
             logger.Warning("It seems that you are using Komga, please note that this project does not yet implement features to support Komga and is in active development. The only usable service currently at this point is Jellyfin")
             http.Error(w, "Feature Not Implemented", http.StatusNotImplemented)

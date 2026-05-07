@@ -20,7 +20,7 @@ func ApplyPatch(w http.ResponseWriter, r *http.Request, s3Client *s3.S3Client) e
     }
     logger.Debug("Extracted itemId:", itemId)
 
-    filePath, err := util.GetItemPath(itemId)
+    filePath, err := getItemPath(itemId)
     if err != nil {
         return errors.New("Failed to get item path from Jellyfin: " + err.Error())
     }
