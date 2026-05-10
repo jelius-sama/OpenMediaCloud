@@ -2,27 +2,40 @@ package immich
 
 import (
     "fmt"
-    "net/http"
-    "os"
-    "path"
-    "strings"
-
     "github.com/jelius-sama/OpenMediaCloud/internal/db"
     "github.com/jelius-sama/OpenMediaCloud/internal/s3"
     "github.com/jelius-sama/logger"
+    "net/http"
+    "os"
 )
 
-// TODO: Implement authentication
+type AssetType uint8
+
+const (
+    ATVideo AssetType = iota
+    ATImage
+)
+
+func (at AssetType) String() string {
+    switch at {
+    case ATImage:
+        return "IMAGE"
+    case ATVideo:
+        return "VIDEO"
+    default:
+        logger.Panic("unreachable")
+        return ""
+    }
+}
+
 func viewAsset(w http.ResponseWriter, r *http.Request, ids []string, s3Client *s3.S3Client) error {
-    assetKey := r.URL.Query().Get("key")
-    assetSlug := r.URL.Query().Get("slug")
     size := r.URL.Query().Get("size")
 
     if len(ids) > 1 || len(ids) == 0 {
         logger.Debug("Expected exactly 1 ID, got more than 1 or less than 0.")
         logger.Info("More than 1 ID parsed, using ID at index 0.")
     }
-    logger.Debug("Requesting Asset:\n\tAsset Key:", assetKey, "\n\tAsset Slug:", assetSlug)
+    logger.Debug("Requesting Asset with ID:", ids[0])
 
     assetPaths, err := db.ImmichGetAssetPaths(ids[0])
 
@@ -34,77 +47,52 @@ func viewAsset(w http.ResponseWriter, r *http.Request, ids []string, s3Client *s
     }
 
     var presignedURL string
+    var targetPath *string
 
-    tempFuncToS3 := func(originalPath string) string {
-        parts := strings.Split(path.Clean(originalPath), "/")
+    disposition, dOK := r.Context().Value("disposition").(string)
+    assetType, atOK := r.Context().Value("type").(string)
 
-        // parts[0] seems to be empty and data is expected to be found at index 1
-        if parts[1] != "data" {
-            logger.Panic("Assertion failed this application requires the asset path to begin with `/data/`")
+    if dOK && disposition == "attachment" {
+        targetPath = &assetPaths.OriginalPath
+    } else if atOK && assetType == ATVideo.String() {
+        if assetPaths.EncodedVideoPath != nil {
+            targetPath = assetPaths.EncodedVideoPath
+        } else {
+            targetPath = &assetPaths.OriginalPath
         }
-        // hardcoded for now
-        parts[1] = "immich-library"
-        joined := strings.Join(parts, "/")
-        return strings.TrimPrefix(joined, "/")
+    } else {
+        switch size {
+        case asThumbnail.String():
+            targetPath = assetPaths.Thumbnail
+        case asPreview.String():
+            targetPath = assetPaths.Preview
+        case asFullsize.String():
+            targetPath = assetPaths.Fullsize
+            if targetPath == nil {
+                targetPath = &assetPaths.OriginalPath
+            }
+        case asOriginal.String():
+            targetPath = &assetPaths.OriginalPath
+        default:
+            targetPath = &assetPaths.OriginalPath
+        }
     }
 
-    switch size {
-    case asThumbnail.String():
-        if assetPaths.Thumbnail != nil {
-            presignedURL, err = s3Client.CreateSignedURL(s3.CreateSignedURLT{
-                Ctx:                 r.Context(),
-                ObjectKey:           tempFuncToS3(*assetPaths.Thumbnail),
-                FallbackContentType: nil,
-                CFEndpoint:          os.Getenv("IMMICH_CLOUDFRONT_ENDPOINT"),
-                CFKeyPairID:         os.Getenv("IMMICH_CLOUDFRONT_KEY_PAIR_ID"),
-                CFPrivateKeyPath:    os.Getenv("IMMICH_CLOUDFRONT_PRIVATE_KEY_PATH"),
-            })
-        }
-    case asPreview.String():
-        if assetPaths.Preview != nil {
-            presignedURL, err = s3Client.CreateSignedURL(s3.CreateSignedURLT{
-                Ctx:                 r.Context(),
-                ObjectKey:           tempFuncToS3(*assetPaths.Preview),
-                FallbackContentType: nil,
-                CFEndpoint:          os.Getenv("IMMICH_CLOUDFRONT_ENDPOINT"),
-                CFKeyPairID:         os.Getenv("IMMICH_CLOUDFRONT_KEY_PAIR_ID"),
-                CFPrivateKeyPath:    os.Getenv("IMMICH_CLOUDFRONT_PRIVATE_KEY_PATH"),
-            })
-        }
-    case asFullsize.String():
-        if assetPaths.Fullsize != nil {
-            presignedURL, err = s3Client.CreateSignedURL(s3.CreateSignedURLT{
-                Ctx:                 r.Context(),
-                ObjectKey:           tempFuncToS3(*assetPaths.Fullsize),
-                FallbackContentType: nil,
-                CFEndpoint:          os.Getenv("IMMICH_CLOUDFRONT_ENDPOINT"),
-                CFKeyPairID:         os.Getenv("IMMICH_CLOUDFRONT_KEY_PAIR_ID"),
-                CFPrivateKeyPath:    os.Getenv("IMMICH_CLOUDFRONT_PRIVATE_KEY_PATH"),
-            })
-        } else {
-            // fallback to original if fullsize not generated
-            presignedURL, err = s3Client.CreateSignedURL(s3.CreateSignedURLT{
-                Ctx:                 r.Context(),
-                ObjectKey:           tempFuncToS3(assetPaths.OriginalPath),
-                FallbackContentType: nil,
-                CFEndpoint:          os.Getenv("IMMICH_CLOUDFRONT_ENDPOINT"),
-                CFKeyPairID:         os.Getenv("IMMICH_CLOUDFRONT_KEY_PAIR_ID"),
-                CFPrivateKeyPath:    os.Getenv("IMMICH_CLOUDFRONT_PRIVATE_KEY_PATH"),
-            })
-        }
-    case asOriginal.String():
+    if targetPath != nil {
         presignedURL, err = s3Client.CreateSignedURL(s3.CreateSignedURLT{
             Ctx:                 r.Context(),
-            ObjectKey:           tempFuncToS3(assetPaths.OriginalPath),
+            ObjectKey:           immichPathToS3Key(*targetPath),
             FallbackContentType: nil,
             CFEndpoint:          os.Getenv("IMMICH_CLOUDFRONT_ENDPOINT"),
             CFKeyPairID:         os.Getenv("IMMICH_CLOUDFRONT_KEY_PAIR_ID"),
             CFPrivateKeyPath:    os.Getenv("IMMICH_CLOUDFRONT_PRIVATE_KEY_PATH"),
         })
+    } else {
+        return fmt.Errorf("failed to query asset path from immich db")
     }
 
     if err != nil {
-        return fmt.Errorf("Failed to create presigned URL: %s", err)
+        return fmt.Errorf("Failed to create presigned URL: %w", err)
     }
     logger.Debug("S3 URL:", presignedURL)
 
@@ -112,7 +100,7 @@ func viewAsset(w http.ResponseWriter, r *http.Request, ids []string, s3Client *s
     // From this point the client fetches the video bytes straight from S3,
     // our EC2 server is no longer in the data path.
     http.Redirect(w, r, presignedURL, http.StatusTemporaryRedirect)
-    logger.Okay("Redirected client to S3 for object:"+"\n\t`"+tempFuncToS3(assetPaths.OriginalPath)+"`\n"+"with size", "`"+size+"`")
+    logger.Okay("Redirected client to S3 for object:" + "\n\t`" + immichPathToS3Key(*targetPath))
 
     return nil
 }

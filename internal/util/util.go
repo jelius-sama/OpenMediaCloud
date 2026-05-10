@@ -136,6 +136,16 @@ func EnsureENV() (uint8, error) {
                 errCount++
                 errs = errs + "\tIMMICH_BUCKET_NAME is not set\n"
             }
+
+            if val := os.Getenv("IMMICH_S3_PREFIX"); len(val) == 0 {
+                errCount++
+                errs = errs + "\tIMMICH_S3_PREFIX is not set\n"
+            }
+
+            if val := os.Getenv("IMMICH_PATH_PREFIX"); len(val) == 0 {
+                errCount++
+                errs = errs + "\tIMMICH_PATH_PREFIX is not set\n"
+            }
         }
 
         if len(upstreamKomgaHost) > 0 {

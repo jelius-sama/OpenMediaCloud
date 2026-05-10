@@ -204,7 +204,9 @@ If broad client compatibility matters, encode media as H.264 (High Profile, 8-bi
 | `IMMICH_DB_NAME` | Database name of Immich DB instance |
 | `IMMICH_DB_USER` | DB user username of Immich DB instance |
 | `IMMICH_DB_PASSWORD` | Password of DB user of Immich DB instance |
-| `UPSTREAM_KOMGA_HOST ` | URL of the upstream Komga Host, e.g. `komga.example.com` |
+| `IMMICH_PATH_PREFIX` | Immich's asset directory path prefix (in most docker setup this may be `/data`) |
+| `IMMICH_S3_PREFIX` | S3 object path prefix (`[/data]/owner-id/uploads/...` -> `s3://[s3-prefix]/owner-id/uploads/...`) |
+| `UPSTREAM_KOMGA_HOST` | URL of the upstream Komga Host, e.g. `komga.example.com` |
 ---
 
 ## Storage Backend Options

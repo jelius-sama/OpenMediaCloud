@@ -11,9 +11,10 @@ type AssetPaths struct {
     ID           string
     OriginalPath string
     // nil if not generated
-    Thumbnail *string
-    Preview   *string
-    Fullsize  *string
+    EncodedVideoPath *string
+    Thumbnail        *string
+    Preview          *string
+    Fullsize         *string
 }
 
 var ImmichConn *sql.DB
@@ -46,25 +47,23 @@ func ImmichClose() error {
 
 func ImmichGetAssetPaths(assetID string) (*AssetPaths, error) {
     const query = `
-        SELECT
-            a.id,
-            a."originalPath",
-            MAX(CASE WHEN af.type = 'thumbnail' THEN af.path END),
-            MAX(CASE WHEN af.type = 'preview'   THEN af.path END),
-            MAX(CASE WHEN af.type = 'fullsize'  THEN af.path END)
-        FROM asset a
-        LEFT JOIN asset_file af ON a.id = af."assetId"
-        WHERE a.id = $1
-        GROUP BY a.id, a."originalPath"
+SELECT
+    a.id,
+    a."originalPath",
+    a."encodedVideoPath",
+    MAX(CASE WHEN af.type = 'thumbnail' THEN af.path END) AS thumbnail_path,
+    MAX(CASE WHEN af.type = 'preview'   THEN af.path END) AS preview_path,
+    MAX(CASE WHEN af.type = 'fullsize'  THEN af.path END) AS fullsize_path
+FROM asset a
+LEFT JOIN asset_file af ON a.id = af."assetId"
+WHERE a.id = $1
+GROUP BY a.id, a."originalPath", a."encodedVideoPath";
     `
 
     row := ImmichConn.QueryRow(query, assetID)
 
     var p AssetPaths
-    err := row.Scan(&p.ID, &p.OriginalPath, &p.Thumbnail, &p.Preview, &p.Fullsize)
-    if err == sql.ErrNoRows {
-        return nil, nil // asset not found, not an error
-    }
+    err := row.Scan(&p.ID, &p.OriginalPath, &p.EncodedVideoPath, &p.Thumbnail, &p.Preview, &p.Fullsize)
     if err != nil {
         return nil, fmt.Errorf("db: query asset paths: %w", err)
     }

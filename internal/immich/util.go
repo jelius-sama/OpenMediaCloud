@@ -2,6 +2,7 @@ package immich
 
 import (
     "net/http"
+    "os"
     "path"
     "strings"
 
@@ -102,6 +103,7 @@ func forwardTo(path string, method string) (pathKindT, []string) {
 // asset.download
 // person.read
 // userProfileImage.read
+// user.read
 // Use only the permission listed above to follow the principle of least priviledge.
 
 type assetSize uint8
@@ -127,5 +129,14 @@ func (as assetSize) String() string {
         logger.Panic("unreachable")
         return ""
     }
+}
+
+func immichPathToS3Key(originalPath string) string {
+    cleaned := path.Clean(originalPath)
+    // strip the mount prefix
+    trimmed := strings.TrimPrefix(cleaned, os.Getenv("IMMICH_PATH_PREFIX"))
+    // join with the s3 prefix and clean up leading slash
+    joined := path.Join(os.Getenv("IMMICH_S3_PREFIX"), trimmed)
+    return strings.TrimPrefix(joined, "/")
 }
 
