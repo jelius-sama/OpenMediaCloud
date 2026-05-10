@@ -19,9 +19,9 @@ func Router(w http.ResponseWriter, r *http.Request) {
 
     kind, variables := forwardTo(r.URL.Path, r.Method)
 
-    // TODO: Implement authentication
     switch kind {
     case pathKindAssetVideo:
+        authenticate(w, r)
         s3Client := s3.NewS3Client(s3.NewS3ClientT{
             Bucket:          os.Getenv("IMMICH_BUCKET_NAME"),
             Region:          os.Getenv("IMMICH_AWS_REGION"),
@@ -36,6 +36,7 @@ func Router(w http.ResponseWriter, r *http.Request) {
         }
 
     case pathKindDownloadAsset:
+        authenticate(w, r)
         s3Client := s3.NewS3Client(s3.NewS3ClientT{
             Bucket:          os.Getenv("IMMICH_BUCKET_NAME"),
             Region:          os.Getenv("IMMICH_AWS_REGION"),
@@ -50,6 +51,7 @@ func Router(w http.ResponseWriter, r *http.Request) {
         }
 
     case pathKindViewAsset:
+        authenticate(w, r)
         s3Client := s3.NewS3Client(s3.NewS3ClientT{
             Bucket:          os.Getenv("IMMICH_BUCKET_NAME"),
             Region:          os.Getenv("IMMICH_AWS_REGION"),
@@ -63,6 +65,7 @@ func Router(w http.ResponseWriter, r *http.Request) {
         }
 
     case pathKindProfileImage:
+        authenticate(w, r)
         s3Client := s3.NewS3Client(s3.NewS3ClientT{
             Bucket:          os.Getenv("IMMICH_BUCKET_NAME"),
             Region:          os.Getenv("IMMICH_AWS_REGION"),
@@ -76,10 +79,21 @@ func Router(w http.ResponseWriter, r *http.Request) {
         }
 
     case pathKindPersonThumbnail:
-        logger.Debug("[TODO] [Immich] Implement Person Thumbnail", variables)
-        immichProxy.ServeHTTP(w, r)
+        authenticate(w, r)
+        s3Client := s3.NewS3Client(s3.NewS3ClientT{
+            Bucket:          os.Getenv("IMMICH_BUCKET_NAME"),
+            Region:          os.Getenv("IMMICH_AWS_REGION"),
+            AccessId:        os.Getenv("IMMICH_ACCESS_KEY_ID"),
+            SecretAccessKey: os.Getenv("IMMICH_SECRET_ACCESS_KEY"),
+            BaseURL:         os.Getenv("IMMICH_BASE_URL"),
+        })
+        if err := getPersonThumbnail(w, r, variables, s3Client); err != nil {
+            logger.Error("[Immich]", err)
+            immichProxy.ServeHTTP(w, r)
+        }
 
     case pathKindDownloadArchive:
+        // authenticate(w, r)
         logger.Debug("[TODO] [Immich] Implement Download Archive", variables)
         immichProxy.ServeHTTP(w, r)
 
