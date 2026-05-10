@@ -3,6 +3,7 @@ package jellyfin
 import (
     "errors"
     "net/http"
+    "os"
     "strings"
 
     "github.com/jelius-sama/OpenMediaCloud/internal/s3"
@@ -28,7 +29,14 @@ func ApplyPatch(w http.ResponseWriter, r *http.Request, s3Client *s3.S3Client) e
     filePath = strings.TrimSuffix(filePath, "/")
     logger.Debug("Jellyfin returned file path:", filePath)
 
-    presignedURL, err := s3Client.CreateSignedURL(r.Context(), filePath, nil)
+    presignedURL, err := s3Client.CreateSignedURL(s3.CreateSignedURLT{
+        Ctx:                 r.Context(),
+        ObjectKey:           filePath,
+        FallbackContentType: nil,
+        CFEndpoint:          os.Getenv("JELLYFIN_CLOUDFRONT_ENDPOINT"),
+        CFKeyPairID:         os.Getenv("JELLYFIN_CLOUDFRONT_KEY_PAIR_ID"),
+        CFPrivateKeyPath:    os.Getenv("JELLYFIN_CLOUDFRONT_PRIVATE_KEY_PATH"),
+    })
     if err != nil {
         return errors.New("Failed to create presigned URL: " + err.Error())
     }

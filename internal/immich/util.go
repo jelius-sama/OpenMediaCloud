@@ -4,6 +4,8 @@ import (
     "net/http"
     "path"
     "strings"
+
+    "github.com/jelius-sama/logger"
 )
 
 type pathKindT uint8
@@ -43,6 +45,7 @@ func (p pathKindT) Method() string {
 
 func matchPattern(pattern string, str string) (bool, []string) {
     str, _ = strings.CutSuffix(str, "?")
+    logger.Debug("matchPattern()\n\tstr:", str, "\n\tpattern:", pattern)
     patternParts := strings.Split(path.Clean(pattern), "/")
     strParts := strings.Split(path.Clean(str), "/")
 
@@ -92,5 +95,37 @@ func forwardTo(path string, method string) (pathKindT, []string) {
     }
 
     return pathKindFallback, nil
+}
+
+// NOTE: List of required permissions:
+// asset.view
+// asset.download
+// person.read
+// userProfileImage.read
+// Use only the permission listed above to follow the principle of least priviledge.
+
+type assetSize uint8
+
+const (
+    asOriginal assetSize = iota
+    asFullsize
+    asPreview
+    asThumbnail
+)
+
+func (as assetSize) String() string {
+    switch as {
+    case asOriginal:
+        return "original"
+    case asFullsize:
+        return "fullsize"
+    case asPreview:
+        return "preview"
+    case asThumbnail:
+        return "thumbnail"
+    default:
+        logger.Panic("unreachable")
+        return ""
+    }
 }
 

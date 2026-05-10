@@ -23,10 +23,18 @@ type S3Client struct {
     Bucket string
 }
 
-func NewS3Client(bucket string) *S3Client {
+type NewS3ClientT struct {
+    Bucket          string
+    Region          string
+    AccessId        string
+    SecretAccessKey string
+    BaseURL         string
+}
+
+func NewS3Client(nc NewS3ClientT) *S3Client {
     cfg, err := config.LoadDefaultConfig(context.TODO(),
-        config.WithRegion(os.Getenv("AWS_REGION")),
-        config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(os.Getenv("ACCESS_KEY_ID"), os.Getenv("SECRET_ACCESS_KEY"), "")),
+        config.WithRegion(nc.Region),
+        config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(nc.AccessId, nc.SecretAccessKey, "")),
         config.WithUseDualStackEndpoint(aws.DualStackEndpointStateEnabled),
     )
     if err != nil {
@@ -34,7 +42,7 @@ func NewS3Client(bucket string) *S3Client {
     }
 
     var client *s3.Client
-    if baseURL := os.Getenv("BASE_URL"); len(baseURL) == 0 {
+    if baseURL := nc.BaseURL; len(baseURL) == 0 {
         client = s3.NewFromConfig(cfg)
     } else {
         client = s3.NewFromConfig(cfg, func(o *s3.Options) {
@@ -45,7 +53,7 @@ func NewS3Client(bucket string) *S3Client {
 
     return &S3Client{
         Client: client,
-        Bucket: bucket,
+        Bucket: nc.Bucket,
     }
 }
 
@@ -67,12 +75,21 @@ func loadPEMPrivKeyFile(name string) (key crypto.Signer, err error) {
     return sign.LoadPEMPrivKeyPKCS8AsSigner(file)
 }
 
-func (s3Client *S3Client) CreateSignedURL(ctx context.Context, objectKey string, fallbackContentType *string) (string, error) {
+type CreateSignedURLT struct {
+    Ctx                 context.Context
+    ObjectKey           string
+    FallbackContentType *string
+    CFEndpoint          string
+    CFKeyPairID         string
+    CFPrivateKeyPath    string
+}
+
+func (s3Client *S3Client) CreateSignedURL(csu CreateSignedURLT) (string, error) {
     presignClient := s3.NewPresignClient(s3Client.Client)
 
-    headOutput, err := s3Client.Client.HeadObject(ctx, &s3.HeadObjectInput{
+    headOutput, err := s3Client.Client.HeadObject(csu.Ctx, &s3.HeadObjectInput{
         Bucket: aws.String(s3Client.Bucket),
-        Key:    aws.String(objectKey),
+        Key:    aws.String(csu.ObjectKey),
     })
 
     if err != nil {
@@ -80,21 +97,21 @@ func (s3Client *S3Client) CreateSignedURL(ctx context.Context, objectKey string,
     }
 
     contentType := headOutput.ContentType
-    if contentType == nil && fallbackContentType == nil {
+    if contentType == nil && csu.FallbackContentType == nil {
         return "", errors.New("couldn't get content type for the object")
     }
     if contentType == nil {
-        contentType = fallbackContentType
+        contentType = csu.FallbackContentType
     }
 
-    disposition, ok := ctx.Value("disposition").(string)
+    disposition, ok := csu.Ctx.Value("disposition").(string)
     if !ok {
         disposition = "inline"
     }
 
     // Cloudfront mode
-    if endpoint := os.Getenv("CLOUDFRONT_ENDPOINT"); len(endpoint) != 0 {
-        encodedKey := url.PathEscape(objectKey)
+    if endpoint := csu.CFEndpoint; len(endpoint) != 0 {
+        encodedKey := url.PathEscape(csu.ObjectKey)
         encodedContentType := url.QueryEscape(*contentType)
         encodedDisposition := url.QueryEscape(disposition)
 
@@ -103,7 +120,7 @@ func (s3Client *S3Client) CreateSignedURL(ctx context.Context, objectKey string,
             "&response-content-type=" + encodedContentType
 
         // Signed mode
-        if keyPair, privKeyPath := os.Getenv("CLOUDFRONT_KEY_PAIR_ID"), os.Getenv("CLOUDFRONT_PRIVATE_KEY_PATH"); len(keyPair) != 0 && len(privKeyPath) != 0 {
+        if keyPair, privKeyPath := csu.CFKeyPairID, csu.CFPrivateKeyPath; len(keyPair) != 0 && len(privKeyPath) != 0 {
             var privateKey crypto.Signer
             // NOTE: Try PKCS#1 first
             privateKey, err := sign.LoadPEMPrivKeyFile(privKeyPath)
@@ -128,10 +145,10 @@ func (s3Client *S3Client) CreateSignedURL(ctx context.Context, objectKey string,
     }
 
     // Regular S3 mode
-    presignedResult, err := presignClient.PresignGetObject(ctx,
+    presignedResult, err := presignClient.PresignGetObject(csu.Ctx,
         &s3.GetObjectInput{
             Bucket: aws.String(s3Client.Bucket),
-            Key:    aws.String(objectKey),
+            Key:    aws.String(csu.ObjectKey),
 
             ResponseContentType:        aws.String(*contentType),
             ResponseContentDisposition: aws.String(disposition),
