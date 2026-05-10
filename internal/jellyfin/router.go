@@ -27,7 +27,7 @@ func Router(w http.ResponseWriter, r *http.Request) {
     // NOTE: hostnames can also be tampered with, so this is not a foolproof solution either.
     jellyfinProxy, err := util.MakeReverseProxy(os.Getenv("JELLYFIN_HOST"))
     if err != nil {
-        logger.Panic("Failed to make reverse proxy:", err)
+        logger.Panic("[Jellyfin] Failed to make reverse proxy:", err)
     }
 
     // TODO: Handle methods more robustly.
@@ -37,17 +37,23 @@ func Router(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    kind := util.ForwardTo(r.URL.Path)
+    kind := forwardTo(r.URL.Path)
 
     switch kind {
-    case util.PathKindMedia:
+    case pathKindMedia:
         if err := CheckAuthStatus(r); err != nil {
             logger.Warning(err)
             http.Error(w, "401 Unauthorized", http.StatusUnauthorized)
             return
         }
 
-        s3Client := s3.NewS3Client(os.Getenv("BUCKET_NAME"))
+        s3Client := s3.NewS3Client(s3.NewS3ClientT{
+            Bucket:          os.Getenv("JELLYFIN_BUCKET_NAME"),
+            Region:          os.Getenv("JELLYFIN_AWS_REGION"),
+            AccessId:        os.Getenv("JELLYFIN_ACCESS_KEY_ID"),
+            SecretAccessKey: os.Getenv("JELLYFIN_SECRET_ACCESS_KEY"),
+            BaseURL:         os.Getenv("JELLYFIN_BASE_URL"),
+        })
         logger.Okay("Caught media request:", r.Method, r.URL.Path)
         // NOTE: If the handler encountered an error it means two things:
         //  1. Either jellyfin server has updated their API and our proxy failed to communicate.
@@ -77,7 +83,7 @@ func Router(w http.ResponseWriter, r *http.Request) {
             jellyfinProxy.ServeHTTP(w, r)
         }
 
-    case util.PathKindMediaInfo:
+    case pathKindMediaInfo:
         if err := CheckAuthStatus(r); err != nil {
             logger.Warning(err)
             http.Error(w, "401 Unauthorized", http.StatusUnauthorized)
@@ -94,14 +100,20 @@ func Router(w http.ResponseWriter, r *http.Request) {
         jellyfinProxy.ModifyResponse = ApplyMediaInfoPatch
         jellyfinProxy.ServeHTTP(w, r)
 
-    case util.PathKindHLS:
+    case pathKindHLS:
         if err := CheckAuthStatus(r); err != nil {
             logger.Warning(err)
             http.Error(w, "401 Unauthorized", http.StatusUnauthorized)
             return
         }
 
-        s3Client := s3.NewS3Client(os.Getenv("BUCKET_NAME"))
+        s3Client := s3.NewS3Client(s3.NewS3ClientT{
+            Bucket:          os.Getenv("JELLYFIN_BUCKET_NAME"),
+            Region:          os.Getenv("JELLYFIN_AWS_REGION"),
+            AccessId:        os.Getenv("JELLYFIN_ACCESS_KEY_ID"),
+            SecretAccessKey: os.Getenv("JELLYFIN_SECRET_ACCESS_KEY"),
+            BaseURL:         os.Getenv("JELLYFIN_BASE_URL"),
+        })
         // NOTE: This will break web version of jellyfin, Swiftfin an iOS app for jellyfin works though.
         // FIX: For the above breaking feature, we have implemented media info route interception which
         //        influences the web client to fetch the raw stream instead of HLS everytime, though it has
@@ -112,7 +124,7 @@ func Router(w http.ResponseWriter, r *http.Request) {
             jellyfinProxy.ServeHTTP(w, r)
         }
 
-    case util.PathKindDownloads:
+    case pathKindDownloads:
         if err := CheckAuthStatus(r); err != nil {
             logger.Warning(err)
             http.Error(w, "401 Unauthorized", http.StatusUnauthorized)
@@ -122,13 +134,13 @@ func Router(w http.ResponseWriter, r *http.Request) {
         logger.Okay("Caught download request:", r.Method, r.URL.Path)
         ApplyDownloadsPatch(w, r, jellyfinProxy)
 
-    case util.PathKindImage:
+    case pathKindImage:
         logger.Debug("Don't forget to check for auth status.")
         logger.Okay("TODO: Caught image request:", r.Method, r.URL.Path)
         // ApplyImagePatch(r)
         jellyfinProxy.ServeHTTP(w, r)
 
-    case util.PathKindDefault:
+    case pathKindDefault:
         logger.Info("Forwarding to Jellyfin:", r.Method, r.URL.Path)
         jellyfinProxy.ServeHTTP(w, r)
 

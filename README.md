@@ -179,15 +179,34 @@ If broad client compatibility matters, encode media as H.264 (High Profile, 8-bi
 | `JELLYFIN_HOST` | Full URL of your local Jellyfin server, e.g. `http://localhost:8096` |
 | `JELLYFIN_API_KEY` | Jellyfin API key created under Admin → API Keys |
 | `JELLYFIN_USER_ID` | Jellyfin user ID used to scope item lookups via the Items API |
-| `ACCESS_KEY_ID` | S3 / R2 access key ID |
-| `SECRET_ACCESS_KEY` | S3 / R2 secret access key |
-| `AWS_REGION` | Storage region. R2 uses `auto`. AWS S3 uses a region code e.g. `us-east-1`. |
-| `BUCKET_NAME` | Name of the S3 / R2 bucket storing your media |
-| `BASE_URL` | In case you are not using AWS S3 you want to set the base URL as per your provider. (default: unset; uses AWS S3 endpoint as base) |
-| `CLOUDFRONT_ENDPOINT` | If set then uses Cloudfront instead of AWS S3. (default: unset; uses AWS S3) |
-| `CLOUDFRONT_KEY_PAIR_ID` | Key ID of your Public Key when using Cloudfront signed URL. |
-| `CLOUDFRONT_PRIVATE_KEY_PATH` | Absolute path to your Private Key associated with your Public key. |
-
+| `JELLYFIN_ACCESS_KEY_ID` | S3 / R2 access key ID for Jellyfin |
+| `JELLYFIN_SECRET_ACCESS_KEY` | S3 / R2 secret access key for Jellyfin |
+| `JELLYFIN_AWS_REGION` | Storage region. R2 uses `auto`. AWS S3 uses a region code e.g. `us-east-1`. |
+| `JELLYFIN_BUCKET_NAME` | Name of the S3 / R2 bucket storing your media |
+| `JELLYFIN_BASE_URL` | In case you are not using AWS S3 you want to set the base URL as per your provider. (default: unset; uses AWS S3 endpoint as base) |
+| `JELLYFIN_CLOUDFRONT_ENDPOINT` | If set then uses Cloudfront instead of AWS S3. (default: unset; uses S3 Bucket) |
+| `JELLYFIN_CLOUDFRONT_KEY_PAIR_ID` | Key ID of your Public Key when using Cloudfront signed URL. |
+| `JELLYFIN_CLOUDFRONT_PRIVATE_KEY_PATH` | Absolute path to your Private Key associated with your Public key. |
+| `UPSTREAM_JELLYFIN_HOST` | URL of the upstream Jellyfin Host, e.g. `tv.example.com` |
+| `UPSTREAM_IMMICH_HOST` | URL of the upstream Immich Host, e.g. `photos.example.com` |
+| `IMMICH_HOST` | Full URL of your local Immich server, e.g. `http://localhost:2283`  |
+| `IMMICH_API_KEY` | Jellyfin API key created under Admin → API Keys |
+| `IMMICH_ACCESS_KEY_ID` | S3 / R2 access key ID |
+| `IMMICH_SECRET_ACCESS_KEY` | S3 / R2 secret access key |
+| `IMMICH_AWS_REGION` | Storage region. R2 uses `auto`. AWS S3 uses a region code e.g. `us-east-1`. |
+| `IMMICH_BUCKET_NAME` | Name of the S3 / R2 bucket storing your media |
+| `IMMICH_BASE_URL` | In case you are not using AWS S3 you want to set the base URL as per your provider. (default: unset; uses AWS S3 endpoint as base) |
+| `IMMICH_CLOUDFRONT_ENDPOINT` | If set then uses Cloudfront instead of AWS S3. (default: unset; uses AWS S3) |
+| `IMMICH_CLOUDFRONT_KEY_PAIR_ID` | Key ID of your Public Key when using Cloudfront signed URL. |
+| `IMMICH_CLOUDFRONT_PRIVATE_KEY_PATH` | Absolute path to your Private Key associated with your Public key. |
+| `IMMICH_DB_PORT` | TCP port of Immich DB instance |
+| `IMMICH_DB_HOST` | Hostname of Immich DB instance (if local, set `localhost`) |
+| `IMMICH_DB_NAME` | Database name of Immich DB instance |
+| `IMMICH_DB_USER` | DB user username of Immich DB instance |
+| `IMMICH_DB_PASSWORD` | Password of DB user of Immich DB instance |
+| `IMMICH_PATH_PREFIX` | Immich's asset directory path prefix (in most docker setup this may be `/data`) |
+| `IMMICH_S3_PREFIX` | S3 object path prefix (`[/data]/owner-id/uploads/...` -> `s3://[s3-prefix]/owner-id/uploads/...`) |
+| `UPSTREAM_KOMGA_HOST` | URL of the upstream Komga Host, e.g. `komga.example.com` |
 ---
 
 ## Storage Backend Options

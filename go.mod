@@ -11,6 +11,7 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/jelius-sama/logger v1.5.0
 	github.com/joho/godotenv v1.5.1
+	github.com/lib/pq v1.12.3
 )
 
 require (

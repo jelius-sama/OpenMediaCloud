@@ -9,10 +9,12 @@ import (
     "os"
     "os/signal"
     "path/filepath"
+    "strconv"
     "syscall"
     "time"
 
     "github.com/fsnotify/fsnotify"
+    "github.com/jelius-sama/OpenMediaCloud/internal/db"
     "github.com/jelius-sama/OpenMediaCloud/internal/mux"
     "github.com/jelius-sama/OpenMediaCloud/internal/util"
 
@@ -139,15 +141,29 @@ func (w *configWatchDogT) Start() {
                     break
                 }
 
-                if err = util.EnsureENV(); err != nil {
+                if services, err := util.EnsureENV(); err != nil {
                     envMap, err := godotenv.Parse(bytes.NewReader(prevConf))
                     if err != nil {
+                        // NOTE: Broken English:
+                        // INFO: The reason why this error should not have happened (unless something catastrophic is wrong with the hardware)
+                        // is because, we use the previously set values to set the new value in case of failure. Because we used the previously
+                        // set value, the error should normally have happened long before we reached this state (the previous values are incorrect)
+                        // Also the error should crash in case the very first config are faulty so there would have been no way we reached till here.
                         logger.Fatal("BUG Encountered, logically this should not have happened but it still did.")
+                        // NOTE: For Native English speakers:
+                        // INFO: This error should not have occurred under normal circumstances (unless there is a catastrophic
+                        // hardware failure). This is because, in the event of a failure, we fall back to the previously set
+                        // values to populate the new configuration. Since we are relying on those previously set values, any
+                        // error of this nature should have surfaced much earlier in the process — before we ever reached this
+                        // state — as it would imply the previous values themselves were already invalid.
+                        // Additionally, if the very first configuration was faulty, the program should have crashed at startup,
+                        // meaning there would have been no way to reach this point.
                     }
 
                     for key, value := range envMap {
                         os.Setenv(key, value)
                     }
+                    initServices(services)
                 } else {
                     setPrevConf()
                     logger.Okay("Detected a change in environment file, successfully updated the configuration")
@@ -157,11 +173,55 @@ func (w *configWatchDogT) Start() {
     }
 }
 
+func initServices(services uint8) {
+    // jellyfin
+    switch (services >> 0) & 1 {
+    case 1:
+    case 0:
+    }
+
+    // immich
+    switch (services >> 1) & 1 {
+    case 1:
+        if db.ImmichConn == nil {
+            port, err := strconv.Atoi(os.Getenv("IMMICH_DB_PORT"))
+            if err != nil {
+                logger.Fatal("Couldn't convert IMMICH_DB_PORT to a valid integer value!")
+            }
+
+            err = db.ImmichConnect(db.Config{
+                Host:     os.Getenv("IMMICH_DB_HOST"),
+                Port:     port,
+                Name:     os.Getenv("IMMICH_DB_NAME"),
+                User:     os.Getenv("IMMICH_DB_USER"),
+                Password: os.Getenv("IMMICH_DB_PASSWORD"),
+            })
+
+            if err != nil {
+                logger.Fatal(err)
+            }
+        }
+
+    case 0:
+        if db.ImmichConn != nil {
+            db.ImmichClose()
+        }
+    }
+
+    // komga
+    switch (services >> 2) & 1 {
+    case 1:
+    case 2:
+    }
+}
+
 func main() {
-    err := util.EnsureENV()
+    services, err := util.EnsureENV()
     if err != nil {
         logger.Fatal(err)
     }
+    initServices(services)
+
     go configWatchDogC.Start()
 
     if keyPair, privKeyPath := os.Getenv("CLOUDFRONT_KEY_PAIR_ID"), os.Getenv("CLOUDFRONT_PRIVATE_KEY_PATH"); len(keyPair) != 0 && len(privKeyPath) != 0 {
