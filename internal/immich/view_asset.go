@@ -1,10 +1,13 @@
 package immich
 
+/*
+#include "../../libs/logger/logger.h"
+*/
+import "C"
 import (
     "fmt"
     "github.com/jelius-sama/OpenMediaCloud/internal/db"
     "github.com/jelius-sama/OpenMediaCloud/internal/s3"
-    "github.com/jelius-sama/logger"
     "net/http"
     "os"
 )
@@ -23,7 +26,7 @@ func (at AssetType) String() string {
     case ATVideo:
         return "VIDEO"
     default:
-        logger.Panic("unreachable")
+        C.Panic("unreachable")
         return ""
     }
 }
@@ -32,10 +35,10 @@ func viewAsset(w http.ResponseWriter, r *http.Request, ids []string, s3Client *s
     size := r.URL.Query().Get("size")
 
     if len(ids) > 1 || len(ids) == 0 {
-        logger.Debug("Expected exactly 1 ID, got more than 1 or less than 0.")
-        logger.Info("More than 1 ID parsed, using ID at index 0.")
+        C.Debug("Expected exactly 1 ID, got more than 1 or less than 0.")
+        C.Info("More than 1 ID parsed, using ID at index 0.")
     }
-    logger.Debug("Requesting Asset with ID:", ids[0])
+    C.Debug("Requesting Asset with ID: " + ids[0])
 
     assetPaths, err := db.ImmichGetAssetPaths(ids[0])
 
@@ -94,13 +97,13 @@ func viewAsset(w http.ResponseWriter, r *http.Request, ids []string, s3Client *s
     if err != nil {
         return fmt.Errorf("Failed to create presigned URL: %w", err)
     }
-    logger.Debug("S3 URL:", presignedURL)
+    C.Debug("S3 URL: " + presignedURL)
 
     // Redirect the client directly to S3.
     // From this point the client fetches the video bytes straight from S3,
     // our EC2 server is no longer in the data path.
     http.Redirect(w, r, presignedURL, http.StatusTemporaryRedirect)
-    logger.Okay("Redirected client to S3 for object:" + "\n\t`" + immichPathToS3Key(*targetPath))
+    C.Okay("Redirected client to S3 for object:" + "\n\t`" + immichPathToS3Key(*targetPath))
 
     return nil
 }

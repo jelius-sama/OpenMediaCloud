@@ -1,19 +1,21 @@
 package jellyfin
 
+/*
+#include "../../libs/logger/logger.h"
+*/
+import "C"
 import (
     "fmt"
     "net/http"
     "os"
-
-    "github.com/jelius-sama/logger"
 )
 
 func CheckAuthStatus(r *http.Request) error {
     userId := r.URL.Query().Get("UserId")
     if len(userId) == 0 {
-        logger.Warning("Client request to access media does not contain a valid user id.")
+        C.Warn("Client request to access media does not contain a valid user id.")
     } else {
-        logger.Info("User with ID `" + userId + "` is trying to access media.")
+        C.Info("User with ID `" + userId + "` is trying to access media.")
     }
 
     req, err := http.NewRequest("GET", fmt.Sprintf("%s/Users/Me", os.Getenv("JELLYFIN_HOST")), nil)
@@ -26,17 +28,17 @@ func CheckAuthStatus(r *http.Request) error {
     //       in practise though it is not "ApiKey" but rather "api_key".
     if token, token2 := r.URL.Query().Get("ApiKey"), r.URL.Query().Get("api_key"); len(token) != 0 || len(token2) != 0 {
         if len(token) != 0 {
-            logger.Debug("Client token:", token)
+            C.Debug("Client token: " + token)
             req.Header.Set("X-Emby-Token", token)
         } else {
-            logger.Debug("Client token:", token2)
+            C.Debug("Client token: " + token2)
             req.Header.Set("X-Emby-Token", token2)
         }
     } else {
-        logger.Debug("Auth Header:\n\r")
+        C.Debug("Auth Header:\n\r")
         for _, headerName := range []string{"Authorization", "X-Emby-Token"} {
             if val := r.Header.Get(headerName); len(val) != 0 {
-                logger.Debug(headerName, val)
+                C.Debug(headerName + "  " + val)
                 req.Header.Set(headerName, val)
             }
         }

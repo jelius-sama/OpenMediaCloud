@@ -1,12 +1,14 @@
 package jellyfin
 
+/*
+#include "../../libs/logger/logger.h"
+*/
+import "C"
 import (
     "github.com/jelius-sama/OpenMediaCloud/internal/s3"
     "github.com/jelius-sama/OpenMediaCloud/internal/util"
     "net/http"
     "os"
-
-    "github.com/jelius-sama/logger"
 )
 
 func Router(w http.ResponseWriter, r *http.Request) {
@@ -27,12 +29,12 @@ func Router(w http.ResponseWriter, r *http.Request) {
     // NOTE: hostnames can also be tampered with, so this is not a foolproof solution either.
     jellyfinProxy, err := util.MakeReverseProxy(os.Getenv("JELLYFIN_HOST"))
     if err != nil {
-        logger.Panic("[Jellyfin] Failed to make reverse proxy:", err)
+        C.Panic("[Jellyfin] Failed to make reverse proxy: " + err.Error())
     }
 
     // TODO: Handle methods more robustly.
     if (r.Method != http.MethodGet) && (r.Method != http.MethodPost) {
-        logger.Info("Forwarding to Jellyfin:", r.Method, r.URL.Path)
+        C.Info("Forwarding to Jellyfin: " + r.Method + " " + r.URL.Path)
         jellyfinProxy.ServeHTTP(w, r)
         return
     }
@@ -42,7 +44,7 @@ func Router(w http.ResponseWriter, r *http.Request) {
     switch kind {
     case pathKindMedia:
         if err := CheckAuthStatus(r); err != nil {
-            logger.Warning(err)
+            C.Warn(err.Error())
             http.Error(w, "401 Unauthorized", http.StatusUnauthorized)
             return
         }
@@ -54,7 +56,7 @@ func Router(w http.ResponseWriter, r *http.Request) {
             SecretAccessKey: os.Getenv("JELLYFIN_SECRET_ACCESS_KEY"),
             BaseURL:         os.Getenv("JELLYFIN_BASE_URL"),
         })
-        logger.Okay("Caught media request:", r.Method, r.URL.Path)
+        C.Okay("Caught media request: " + r.Method + " " + r.URL.Path)
         // NOTE: If the handler encountered an error it means two things:
         //  1. Either jellyfin server has updated their API and our proxy failed to communicate.
         //  2. Or our handler function has an edge case that we are not handling well.
@@ -76,7 +78,7 @@ func Router(w http.ResponseWriter, r *http.Request) {
         //      that we don't have to rely on jellyfin, since error responses are well documented it is
         //      not really that difficult.
         if err := ApplyPatch(w, r, s3Client); err != nil {
-            logger.TimedError(err) // INFO: We can temporarily monitor logs and email the admin in case of err.
+            C.Error(err.Error()) // INFO: We can temporarily monitor logs and email the admin in case of err.
             // TODO: Implement error handling instead of letting jellyfin do it for us as the error may
             //       be caused due to our implemented of the handler which if it is the case then jellyfin
             //       would end up successfully serving the media to the client costing us egress fees.
@@ -85,12 +87,12 @@ func Router(w http.ResponseWriter, r *http.Request) {
 
     case pathKindMediaInfo:
         if err := CheckAuthStatus(r); err != nil {
-            logger.Warning(err)
+            C.Warn(err.Error())
             http.Error(w, "401 Unauthorized", http.StatusUnauthorized)
             return
         }
 
-        logger.Okay("Caught media info request:", r.Method, r.URL.Path)
+        C.Okay("Caught media info request: " + r.Method + " " + r.URL.Path)
         originalDirector := jellyfinProxy.Director
         jellyfinProxy.Director = func(req *http.Request) {
             originalDirector(req)
@@ -102,7 +104,7 @@ func Router(w http.ResponseWriter, r *http.Request) {
 
     case pathKindHLS:
         if err := CheckAuthStatus(r); err != nil {
-            logger.Warning(err)
+            C.Warn(err.Error())
             http.Error(w, "401 Unauthorized", http.StatusUnauthorized)
             return
         }
@@ -118,34 +120,34 @@ func Router(w http.ResponseWriter, r *http.Request) {
         // FIX: For the above breaking feature, we have implemented media info route interception which
         //        influences the web client to fetch the raw stream instead of HLS everytime, though it has
         //        it's own disadvantages, it works.
-        logger.Okay("Caught HLS request:", r.Method, r.URL.Path)
+        C.Okay("Caught HLS request: " + r.Method + " " + r.URL.Path)
         if err := ApplyPatch(w, r, s3Client); err != nil {
-            logger.TimedError(err)
+            C.Error(err.Error())
             jellyfinProxy.ServeHTTP(w, r)
         }
 
     case pathKindDownloads:
         if err := CheckAuthStatus(r); err != nil {
-            logger.Warning(err)
+            C.Warn(err.Error())
             http.Error(w, "401 Unauthorized", http.StatusUnauthorized)
             return
         }
 
-        logger.Okay("Caught download request:", r.Method, r.URL.Path)
+        C.Okay("Caught download request: " + r.Method + " " + r.URL.Path)
         ApplyDownloadsPatch(w, r, jellyfinProxy)
 
     case pathKindImage:
-        logger.Debug("Don't forget to check for auth status.")
-        logger.Okay("TODO: Caught image request:", r.Method, r.URL.Path)
+        C.Debug("Don't forget to check for auth status.")
+        C.Okay("TODO: Caught image request: " + r.Method + " " + r.URL.Path)
         // ApplyImagePatch(r)
         jellyfinProxy.ServeHTTP(w, r)
 
     case pathKindDefault:
-        logger.Info("Forwarding to Jellyfin:", r.Method, r.URL.Path)
+        C.Info("Forwarding to Jellyfin: " + r.Method + " " + r.URL.Path)
         jellyfinProxy.ServeHTTP(w, r)
 
     default:
-        logger.Panic("unreachable")
+        C.Panic("unreachable")
     }
 }
 

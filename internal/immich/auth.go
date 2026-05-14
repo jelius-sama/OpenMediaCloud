@@ -1,13 +1,15 @@
 package immich
 
+/*
+#include "../../libs/logger/logger.h"
+*/
+import "C"
 import (
     "io"
     "maps"
     "net/http"
     "os"
     "time"
-
-    "github.com/jelius-sama/logger"
 )
 
 var immichCheckClient = &http.Client{
@@ -20,7 +22,7 @@ func authenticate(w http.ResponseWriter, r *http.Request) {
     // links, etc.) so we delegate entirely rather than reimplementing them.
     authReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, os.Getenv("IMMICH_HOST")+r.URL.RequestURI(), nil)
     if err != nil {
-        logger.Error("[Immich] Failed to build auth check request:", err)
+        C.Error("[Immich] Failed to build auth check request: " + err.Error())
         http.Error(w, "internal server error", http.StatusInternalServerError)
         return
     }
@@ -28,7 +30,7 @@ func authenticate(w http.ResponseWriter, r *http.Request) {
 
     authResp, err := immichCheckClient.Do(authReq)
     if err != nil {
-        logger.Error("[Immich] Auth check request failed:", err)
+        C.Error("[Immich] Auth check request failed: " + err.Error())
         http.Error(w, "upstream unreachable", http.StatusBadGateway)
         return
     }
@@ -46,6 +48,6 @@ func authenticate(w http.ResponseWriter, r *http.Request) {
     // Drain the body by reading it into io.Discard
     io.Copy(io.Discard, authResp.Body)
     authResp.Body.Close()
-    logger.Debug("Auth Passed")
+    C.Debug("Auth Passed")
 }
 

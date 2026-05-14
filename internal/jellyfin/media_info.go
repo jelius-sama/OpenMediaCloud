@@ -1,5 +1,8 @@
 package jellyfin
 
+/*
+#include "../../libs/logger/logger.h"
+*/
 import (
     "bytes"
     "compress/gzip"

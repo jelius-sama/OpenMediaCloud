@@ -1,5 +1,9 @@
 package immich
 
+/*
+#include "../../libs/logger/logger.h"
+*/
+import "C"
 import (
     "encoding/json"
     "fmt"
@@ -8,13 +12,12 @@ import (
     "os"
 
     "github.com/jelius-sama/OpenMediaCloud/internal/s3"
-    "github.com/jelius-sama/logger"
 )
 
 func getProfileImage(w http.ResponseWriter, r *http.Request, ids []string, s3Client *s3.S3Client) error {
     if len(ids) > 1 || len(ids) == 0 {
-        logger.Debug("Expected exactly 1 ID, got more than 1 or less than 0.")
-        logger.Info("More than 1 ID parsed, using ID at index 0.")
+        C.Debug("Expected exactly 1 ID, got more than 1 or less than 0.")
+        C.Info("More than 1 ID parsed, using ID at index 0.")
     }
 
     req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/users/%s", os.Getenv("IMMICH_HOST"), ids[0]), nil)
@@ -54,13 +57,13 @@ func getProfileImage(w http.ResponseWriter, r *http.Request, ids []string, s3Cli
     if err != nil {
         return fmt.Errorf("Failed to create presigned URL: %w", err)
     }
-    logger.Debug("S3 URL:", presignedURL)
+    C.Debug("S3 URL: " + presignedURL)
 
     // Redirect the client directly to S3.
     // From this point the client fetches the video bytes straight from S3,
     // our EC2 server is no longer in the data path.
     http.Redirect(w, r, presignedURL, http.StatusTemporaryRedirect)
-    logger.Okay("Redirected client to S3 for object:" + "\n\t`" + immichPathToS3Key(userInfo["profileImagePath"]) + "`")
+    C.Okay("Redirected client to S3 for object:" + "\n\t`" + immichPathToS3Key(userInfo["profileImagePath"]) + "`")
 
     return nil
 }

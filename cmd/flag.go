@@ -1,5 +1,9 @@
 package main
 
+/*
+#include "../libs/logger/logger.h"
+*/
+import "C"
 import (
     "flag"
     "fmt"
@@ -7,8 +11,6 @@ import (
     "runtime"
     "strconv"
     "strings"
-
-    "github.com/jelius-sama/logger"
 )
 
 type Flag uint8
@@ -34,7 +36,7 @@ func (f Flag) Short() string {
     case FlagIn:
         return "i"
     }
-    logger.Panic("unreachable: f.Short()")
+    C.Panic("unreachable: f.Short()")
     return ""
 }
 
@@ -51,7 +53,7 @@ func (f Flag) Long() string {
     case FlagIn:
         return "i"
     }
-    logger.Panic("unreachable: f.Long()")
+    C.Panic("unreachable: f.Long()")
     return ""
 }
 
@@ -82,8 +84,8 @@ func handleFlags() bool {
 
     defaultPort, err := strconv.Atoi(strings.TrimPrefix(PORT, ":"))
     if err != nil {
-        logger.Debug("Failed to get default server port:", err)
-        logger.Debug("Setting :8000 as default port")
+        C.Debug("Failed to get default server port:" + err.Error())
+        C.Debug("Setting :8000 as default port")
         defaultPort = 8000
     }
 
@@ -108,11 +110,11 @@ func handleFlags() bool {
     }
 
     if isFlagPassed(FlagV) && (isFlagPassed(FlagEnv) || isFlagPassed(FlagP)) {
-        logger.Fatal("\r"+"Flags", FlagEnv.String()+", "+FlagP.String()+", and "+FlagV.String(), "are mutually exclusive. Please use only one.")
+        C.Fatal("\r" + "Flags " + FlagEnv.String() + ", " + FlagP.String() + ", and " + FlagV.String() + " are mutually exclusive. Please use only one.")
     }
 
     if isFlagPassed(FlagV) {
-        logger.Info("\r"+"OpenMediaCloud", VERSION, "\nCompiled for", runtime.GOOS, runtime.GOARCH)
+        C.Info("\r" + "OpenMediaCloud " + VERSION + "\nCompiled for " + runtime.GOOS + " " + runtime.GOARCH)
         return true
     }
 
@@ -136,7 +138,7 @@ func handleGenCmd(set *flag.FlagSet) {
 
     // Check for the second-level command (env or service)
     if len(os.Args) < 3 {
-        logger.Fatal("\r" + "expected 'env' or 'service' after 'gen'")
+        C.Fatal("\rexpected 'env' or 'service' after 'gen'")
     }
 
     subCommand := os.Args[2]
@@ -156,18 +158,18 @@ func handleGenCmd(set *flag.FlagSet) {
         set.Usage()
     default:
         set.Usage()
-        logger.Fatal("\r"+"Unknown generation target:", subCommand)
+        C.Fatal("\r" + "Unknown generation target: " + subCommand)
     }
 
     if genOut != nil && len(*genOut) != 0 {
         if err := os.WriteFile(*genOut, []byte(content), 0644); err != nil {
-            logger.Error("\r"+"Error writing to file:", err.Error())
-            logger.Info("\r" + content)
+            C.Error("\r" + "Error writing to file: " + err.Error())
+            C.Info("\r" + content)
         } else {
-            logger.Okay("\r"+"Successfully generated", subCommand, "to", *genOut)
+            C.Okay("\r" + "Successfully generated " + subCommand + " to " + *genOut)
         }
     } else {
-        logger.Okay("\r" + content)
+        C.Okay("\r" + content)
     }
 }
 
@@ -185,23 +187,23 @@ func handleCloudfrontCmd(set *flag.FlagSet) {
     switch subCommand {
     case "ls":
         if len(os.Args) < 4 {
-            logger.Fatal("\r" + "expected <path> after 'ls'")
+            C.Fatal("\rexpected <path> after 'ls'")
         }
 
         items := decodePath(os.Args[3], 100)
         for i := len(items) - 1; i >= 0; i-- {
-            logger.Okay("\r", items[i])
+            C.Okay("\r" + items[i])
         }
     case "cp":
         if len(os.Args) < 5 {
-            logger.Fatal("\r" + "expected <input path> and <output path> after 'cp'")
+            C.Fatal("\rexpected <input path> and <output path> after 'cp'")
         }
-        logger.Debug("TODO: Implement cloudfront cp command.")
+        C.Debug("TODO: Implement cloudfront cp command.")
     case "-h", "--h", "-help", "--help":
         set.Usage()
     default:
         set.Usage()
-        logger.Fatal("\r"+"Unknown command:", subCommand)
+        C.Fatal("\rUnknown command: " + subCommand)
     }
 }
 

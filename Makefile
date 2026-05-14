@@ -1,9 +1,8 @@
 GOC := go
 
 # NOTE: By default any and all builds will be a debug build by default, only once a stable release has been made this will change.
-GOFLAGS_PROD := -ldflags "-s -w -X main.IS_PROD=TRUE  -X main.PORT=:8000" -trimpath -buildvcs=false
-GOFLAGS_DEV  := -ldflags "-X main.IS_PROD=FALSE -X main.PORT=:8000" -trimpath -buildvcs=false
-
+GOFLAGS_PROD := -ldflags "-extldflags '-L./libs/logger -llogger ./bin/logutil.o' -s -w -X main.IS_PROD=TRUE  -X main.PORT=:8000" -trimpath -buildvcs=false
+GOFLAGS_DEV  := -ldflags "-extldflags '-L./libs/logger -llogger ./bin/logutil.o' -X main.IS_PROD=FALSE -X main.PORT=:8000" -trimpath -buildvcs=false
 .PHONY: run build release
 
 APP_NAME := OpenMediaCloud
@@ -15,6 +14,7 @@ run:
 
 build:
 	mkdir -p $(BUILD)
+	gcc -c -o $(BUILD)/logutil.o ./cmd/main.c
 	$(GOC) build $(GOFLAGS_DEV) -o $(BUILD)/$(APP_NAME) $(ENTRY)
 
 PLATFORMS = \

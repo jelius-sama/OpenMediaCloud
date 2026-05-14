@@ -1,13 +1,15 @@
 package jellyfin
 
+/*
+#include "../../libs/logger/logger.h"
+*/
+import "C"
 import (
     "context"
     "github.com/jelius-sama/OpenMediaCloud/internal/s3"
     "net/http"
     "net/http/httputil"
     "os"
-
-    "github.com/jelius-sama/logger"
 )
 
 func ApplyDownloadsPatch(w http.ResponseWriter, r *http.Request, originProxy *httputil.ReverseProxy) {
@@ -18,11 +20,11 @@ func ApplyDownloadsPatch(w http.ResponseWriter, r *http.Request, originProxy *ht
         SecretAccessKey: os.Getenv("JELLYFIN_SECRET_ACCESS_KEY"),
         BaseURL:         os.Getenv("JELLYFIN_BASE_URL"),
     })
-    logger.Okay("Caught video download request:", r.URL.Path)
+    C.Okay("Caught video download request: " + r.URL.Path)
     r = r.WithContext(context.WithValue(r.Context(), "disposition", "attachment"))
 
     if err := ApplyPatch(w, r, s3Client); err != nil {
-        logger.TimedError(err)
+        C.Error(err.Error())
         originProxy.ServeHTTP(w, r)
     }
 }

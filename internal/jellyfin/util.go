@@ -1,5 +1,8 @@
 package jellyfin
 
+/*
+#include "../../libs/logger/logger.h"
+*/
 import (
     "encoding/json"
     "fmt"

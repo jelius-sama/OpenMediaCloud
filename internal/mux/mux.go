@@ -1,12 +1,15 @@
 package mux
 
+/*
+#include "../../libs/logger/logger.h"
+*/
+import "C"
 import (
     "net/http"
     "os"
 
     "github.com/jelius-sama/OpenMediaCloud/internal/immich"
     "github.com/jelius-sama/OpenMediaCloud/internal/jellyfin"
-    "github.com/jelius-sama/logger"
 )
 
 type Host uint8
@@ -28,7 +31,7 @@ func (h Host) ToString() string {
         return os.Getenv("UPSTREAM_KOMGA_HOST")
     }
 
-    logger.Panic("Invalid host enumeration")
+    C.Panic("Invalid host enumeration")
     return ""
 }
 
@@ -48,12 +51,12 @@ func Multiplexer() *http.ServeMux {
 
         // TODO: Implement router for komga
         if r.Host == HostKomga.ToString() {
-            logger.Warning("It seems that you are using Komga, please note that this project does not yet implement features to support Komga and is in active development. The only usable service currently at this point is Jellyfin")
+            C.Warn("It seems that you are using Komga, please note that this project does not yet implement features to support Komga and is in active development. The only usable service currently at this point is Jellyfin")
             http.Error(w, "Feature Not Implemented", http.StatusNotImplemented)
             return
         }
 
-        logger.Error("Unknown host detected, rejecting client's request")
+        C.Error("Unknown host detected, rejecting client's request")
         http.Error(w, "Something went wrong", http.StatusBadRequest)
     })
 

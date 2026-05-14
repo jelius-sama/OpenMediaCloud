@@ -1,20 +1,23 @@
 package immich
 
+/*
+#include "../../libs/logger/logger.h"
+*/
+import "C"
 import (
     "context"
+    "fmt"
     "net/http"
     "os"
 
     "github.com/jelius-sama/OpenMediaCloud/internal/s3"
     "github.com/jelius-sama/OpenMediaCloud/internal/util"
-
-    "github.com/jelius-sama/logger"
 )
 
 func Router(w http.ResponseWriter, r *http.Request) {
     immichProxy, err := util.MakeReverseProxy(os.Getenv("IMMICH_HOST"))
     if err != nil {
-        logger.Panic("[Immich] Failed to make reverse proxy:", err)
+        C.Panic("[Immich] Failed to make reverse proxy: " + err.Error())
     }
 
     kind, variables := forwardTo(r.URL.Path, r.Method)
@@ -31,7 +34,7 @@ func Router(w http.ResponseWriter, r *http.Request) {
         })
         r = r.WithContext(context.WithValue(r.Context(), "type", ATVideo.String()))
         if err := viewAsset(w, r, variables, s3Client); err != nil {
-            logger.Error("[Immich]", err)
+            C.Error("[Immich] " + err.Error())
             immichProxy.ServeHTTP(w, r)
         }
 
@@ -46,7 +49,7 @@ func Router(w http.ResponseWriter, r *http.Request) {
         })
         r = r.WithContext(context.WithValue(r.Context(), "disposition", "attachment"))
         if err := viewAsset(w, r, variables, s3Client); err != nil {
-            logger.Error("[Immich]", err)
+            C.Error("[Immich] " + err.Error())
             immichProxy.ServeHTTP(w, r)
         }
 
@@ -60,7 +63,7 @@ func Router(w http.ResponseWriter, r *http.Request) {
             BaseURL:         os.Getenv("IMMICH_BASE_URL"),
         })
         if err := viewAsset(w, r, variables, s3Client); err != nil {
-            logger.Error("[Immich]", err)
+            C.Error("[Immich] " + err.Error())
             immichProxy.ServeHTTP(w, r)
         }
 
@@ -74,7 +77,7 @@ func Router(w http.ResponseWriter, r *http.Request) {
             BaseURL:         os.Getenv("IMMICH_BASE_URL"),
         })
         if err := getProfileImage(w, r, variables, s3Client); err != nil {
-            logger.Error("[Immich]", err)
+            C.Error("[Immich] " + err.Error())
             immichProxy.ServeHTTP(w, r)
         }
 
@@ -88,21 +91,21 @@ func Router(w http.ResponseWriter, r *http.Request) {
             BaseURL:         os.Getenv("IMMICH_BASE_URL"),
         })
         if err := getPersonThumbnail(w, r, variables, s3Client); err != nil {
-            logger.Error("[Immich]", err)
+            C.Error("[Immich] " + err.Error())
             immichProxy.ServeHTTP(w, r)
         }
 
     case pathKindDownloadArchive:
         // authenticate(w, r)
-        logger.Debug("[TODO] [Immich] Implement Download Archive", variables)
+        C.Debug(fmt.Sprintf("[TODO] [Immich] Implement Download Archive %s", variables))
         immichProxy.ServeHTTP(w, r)
 
     case pathKindFallback:
-        logger.Info("Forwarding to Immich:", r.Method, r.URL.Path)
+        C.Info("Forwarding to Immich: " + r.Method + " " + r.URL.Path)
         immichProxy.ServeHTTP(w, r)
 
     default:
-        logger.Panic("unreachable")
+        C.Panic("unreachable")
     }
 }
 

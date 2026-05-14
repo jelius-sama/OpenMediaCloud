@@ -9,7 +9,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/cloudfront/sign v1.9.21
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.97.1
 	github.com/fsnotify/fsnotify v1.9.0
-	github.com/jelius-sama/logger v1.5.0
 	github.com/joho/godotenv v1.5.1
 	github.com/lib/pq v1.12.3
 )

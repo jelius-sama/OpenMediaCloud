@@ -1,5 +1,9 @@
 package s3
 
+/*
+#include "../../libs/logger/logger.h"
+*/
+import "C"
 import (
     "context"
     "crypto"
@@ -15,7 +19,6 @@ import (
     "github.com/aws/aws-sdk-go-v2/credentials"
     "github.com/aws/aws-sdk-go-v2/feature/cloudfront/sign"
     "github.com/aws/aws-sdk-go-v2/service/s3"
-    "github.com/jelius-sama/logger"
 )
 
 type S3Client struct {
@@ -38,7 +41,7 @@ func NewS3Client(nc NewS3ClientT) *S3Client {
         config.WithUseDualStackEndpoint(aws.DualStackEndpointStateEnabled),
     )
     if err != nil {
-        logger.Fatal("Failed to load default S3 config")
+        C.Fatal("Failed to load default S3 config")
     }
 
     var client *s3.Client

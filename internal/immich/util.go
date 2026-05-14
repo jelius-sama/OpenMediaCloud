@@ -1,12 +1,14 @@
 package immich
 
+/*
+#include "../../libs/logger/logger.h"
+*/
+import "C"
 import (
     "net/http"
     "os"
     "path"
     "strings"
-
-    "github.com/jelius-sama/logger"
 )
 
 type pathKindT uint8
@@ -46,7 +48,7 @@ func (p pathKindT) Method() string {
 
 func matchPattern(pattern string, str string) (bool, []string) {
     str, _ = strings.CutSuffix(str, "?")
-    logger.Debug("matchPattern()\n\tstr:", str, "\n\tpattern:", pattern)
+    C.Debug("matchPattern()\n\tstr: " + str + "\n\tpattern: " + pattern)
     patternParts := strings.Split(path.Clean(pattern), "/")
     strParts := strings.Split(path.Clean(str), "/")
 
@@ -126,7 +128,7 @@ func (as assetSize) String() string {
     case asThumbnail:
         return "thumbnail"
     default:
-        logger.Panic("unreachable")
+        C.Panic("unreachable")
         return ""
     }
 }

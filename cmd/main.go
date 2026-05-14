@@ -1,5 +1,11 @@
 package main
 
+/*
+#include "../libs/logger/logger.h"
+void ConfigureLogging();
+*/
+// #cgo LDFLAGS: -Wl,--allow-multiple-definition
+import "C"
 import (
     "bytes"
     "context"
@@ -18,11 +24,10 @@ import (
     "github.com/jelius-sama/OpenMediaCloud/internal/mux"
     "github.com/jelius-sama/OpenMediaCloud/internal/util"
 
-    "github.com/jelius-sama/logger"
     "github.com/joho/godotenv"
 )
 
-const VERSION = "v0.1.0"
+const VERSION = "v0.1.2"
 
 var (
     // Set at compile time (use makefile)
@@ -38,14 +43,7 @@ type configWatchDogT struct {
 var configWatchDogC = &configWatchDogT{}
 
 func init() {
-    logger.Configure(logger.Cnf{
-        IsDev: logger.IsDev{
-            EnvironmentVariable: nil,
-            ExpectedValue:       nil,
-            DirectValue:         logger.BoolPtr(IS_PROD == "FALSE"),
-        },
-        UseSyslog: false,
-    })
+    go C.ConfigureLogging()
 
     if shouldExit := handleFlags(); shouldExit == true {
         os.Exit(0)
@@ -53,7 +51,7 @@ func init() {
 
     if CustomEnvPath != nil && len(*CustomEnvPath) != 0 {
         if err := godotenv.Load(*CustomEnvPath); err != nil {
-            logger.Fatal(err)
+            C.Fatal(err.Error())
         }
         configWatchDogC.ActivePath = *CustomEnvPath
     } else {
@@ -66,10 +64,10 @@ func init() {
         userHome, err := os.UserHomeDir()
 
         if err != nil {
-            logger.Error("Couldn't get user's home directory, loading from `/etc/OpenMediaCloud`.")
+            C.Error("Couldn't get user's home directory, loading from `/etc/OpenMediaCloud`.")
             err = loadFromEtc()
             if err != nil {
-                logger.Fatal("Error loading environment variables.")
+                C.Fatal("Error loading environment variables.")
             }
         } else {
             path := filepath.Join(userHome, ".config", "OpenMediaCloud", ".env")
@@ -78,7 +76,7 @@ func init() {
             if err != nil {
                 err = loadFromEtc()
                 if err != nil {
-                    logger.Fatal("Error loading environment variables.")
+                    C.Fatal("Error loading environment variables.")
                 }
             }
         }
@@ -95,7 +93,7 @@ func (w *configWatchDogT) Start() {
     setPrevConf := func() {
         prevConf, err = os.ReadFile(w.ActivePath)
         if err != nil {
-            logger.Fatal("failed to read environment file\n\tFile is either deleted or something very serious is wrong.\n\tHow could we manage to read before?")
+            C.Fatal("failed to read environment file\n\tFile is either deleted or something very serious is wrong.\n\tHow could we manage to read before?")
         }
     }
 
@@ -103,7 +101,7 @@ func (w *configWatchDogT) Start() {
 
     watcher, err := fsnotify.NewWatcher()
     if err != nil {
-        logger.Error("failed to watch environment file, live reloading disabled.")
+        C.Error("failed to watch environment file, live reloading disabled.")
         return
     }
 
@@ -114,14 +112,14 @@ func (w *configWatchDogT) Start() {
         select {
         case err, ok := <-watcher.Errors:
             if !ok {
-                logger.Error("Watcher engine shut down. Live reload is now disabled.")
+                C.Error("Watcher engine shut down. Live reload is now disabled.")
                 return
             }
-            logger.Error("config watchdog error:", err)
+            C.Error("config watchdog error: " + err.Error())
 
         case events, ok := <-watcher.Events:
             if !ok {
-                logger.Error("Encounter an error, any future changes to environment file will not be applied or watched.")
+                C.Error("Encounter an error, any future changes to environment file will not be applied or watched.")
                 return
             }
 
@@ -135,7 +133,7 @@ func (w *configWatchDogT) Start() {
                             time.Sleep(10 * time.Millisecond) // sleep for 10ms
                             continue
                         }
-                        logger.Error("Detected a change in", w.ActivePath+".", "\nDue to errors, changes to environment will not be applied.\n\t", err)
+                        C.Error("Detected a change in " + w.ActivePath + "." + "\nDue to errors, changes to environment will not be applied.\n\t" + err.Error())
                         break
                     }
                     break
@@ -149,7 +147,7 @@ func (w *configWatchDogT) Start() {
                         // is because, we use the previously set values to set the new value in case of failure. Because we used the previously
                         // set value, the error should normally have happened long before we reached this state (the previous values are incorrect)
                         // Also the error should crash in case the very first config are faulty so there would have been no way we reached till here.
-                        logger.Fatal("BUG Encountered, logically this should not have happened but it still did.")
+                        C.Fatal("BUG Encountered, logically this should not have happened but it still did.")
                         // NOTE: For Native English speakers:
                         // INFO: This error should not have occurred under normal circumstances (unless there is a catastrophic
                         // hardware failure). This is because, in the event of a failure, we fall back to the previously set
@@ -166,7 +164,7 @@ func (w *configWatchDogT) Start() {
                     initServices(services)
                 } else {
                     setPrevConf()
-                    logger.Okay("Detected a change in environment file, successfully updated the configuration")
+                    C.Okay("Detected a change in environment file, successfully updated the configuration")
                 }
             }
         }
@@ -186,7 +184,7 @@ func initServices(services uint8) {
         if db.ImmichConn == nil {
             port, err := strconv.Atoi(os.Getenv("IMMICH_DB_PORT"))
             if err != nil {
-                logger.Fatal("Couldn't convert IMMICH_DB_PORT to a valid integer value!")
+                C.Fatal("Couldn't convert IMMICH_DB_PORT to a valid integer value!")
             }
 
             err = db.ImmichConnect(db.Config{
@@ -198,7 +196,7 @@ func initServices(services uint8) {
             })
 
             if err != nil {
-                logger.Fatal(err)
+                C.Fatal(err.Error())
             }
         }
 
@@ -218,7 +216,7 @@ func initServices(services uint8) {
 func main() {
     services, err := util.EnsureENV()
     if err != nil {
-        logger.Fatal(err)
+        C.Fatal(err.Error())
     }
     initServices(services)
 
@@ -228,13 +226,13 @@ func main() {
         // NOTE: os.Stat doesn't necessarily mean we have read permission.
         file, err := os.OpenFile(privKeyPath, os.O_RDONLY, 0)
         if err != nil {
-            logger.Fatal("Failed to read cloudfront private key:", err)
+            C.Fatal("Failed to read cloudfront private key: " + err.Error())
         }
         defer file.Close()
     }
 
     fmt.Println("\n\033[0;36mOpenMediaCloud", VERSION, "\033[0m")
-    logger.Info("Starting server on port", PORT)
+    C.Info("Starting server on port " + PORT)
 
     var quit chan os.Signal = make(chan os.Signal, 1)
     signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
@@ -246,7 +244,7 @@ func main() {
 
     go func() {
         if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-            logger.Fatal("Failed to start server on port "+PORT+"\n", err)
+            C.Fatal("Failed to start server on port " + PORT + "\n" + err.Error())
         }
     }()
 
@@ -262,7 +260,7 @@ func main() {
 
     go func() {
         if err := server.Shutdown(ctx); err != nil {
-            logger.TimedFatal("Server forced to shutdown:", err)
+            C.Fatal("Server forced to shutdown: " + err.Error())
         }
         close(done)
     }()
@@ -270,11 +268,13 @@ func main() {
     for {
         select {
         case <-done:
-            logger.TimedInfo("Server stopped.")
+            C.Info("Server stopped.")
             return
 
         case <-ctx.Done():
-            logger.TimedInfo("Timeout reached:", ctx.Err())
+            if err = ctx.Err(); err != nil {
+                C.Info("Timeout reached: " + err.Error())
+            }
             return
 
         case <-ticker.C:
