@@ -22,7 +22,7 @@ import (
     "github.com/joho/godotenv"
 )
 
-const VERSION = "v0.1.0"
+const VERSION = "v0.1.2"
 
 var (
     // Set at compile time (use makefile)
