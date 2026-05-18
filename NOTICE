@@ -1,0 +1,14 @@
+========================================================================
+OpenMediaCloud
+Copyright (c) 2026 Jelius Basumatary <personal@jelius.dev>
+========================================================================
+
+This product includes software developed by third parties, which are
+retained and distributed under their respective licenses.
+
+------------------------------------------------------------------------
+NOTICES FOR DEPENDENCY: https://github.com/aws/aws-sdk-go-v2
+------------------------------------------------------------------------
+AWS SDK for Go
+Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+Copyright 2014-2015 Stripe, Inc.
