@@ -96,6 +96,12 @@ The compute workaround only makes economic sense if outputs are cached in S3 rat
 
 Outputs are not deleted automatically. This means storage costs grow over time as more unique outputs are generated and cached. You may want to configure an S3 lifecycle rule to expire outputs after a suitable period (e.g. 7 or 30 days) if storage cost is a concern.
 
+Two additional caching strategies are also being considered as future additions.
+
+The first is a prefetch cache, planned as an opt-in feature, based on spatial locality of reference. When a user finishes watching an episode in Jellyfin, the next episode is likely to be watched soon after, so OpenMediaCloud could proactively pull and cache it in anticipation. The opt-in constraint exists because if the user does not continue watching, the prefetch wastes both compute time and storage without ever being used.
+
+The second is a temporal cache for content the user is likely to revisit — a recently released film being an obvious example. This is currently deprioritised as a feature to build independently, because S3 bucket lifecycle rules already provide configurable object expiry and cover the same need without requiring any additional implementation on OpenMediaCloud's side.
+
 ### 5. This is not yet implemented
 
 The workaround described here is a plan, not a shipping feature. It requires coordinating the compute pipeline, the S3 write, the cache check, and the redirect logic — and it depends on infrastructure that not all users will have configured (VPC Gateway Endpoint, same-region bucket, CloudFront distribution).

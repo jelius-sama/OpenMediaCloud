@@ -4,7 +4,7 @@ GOC := go
 GOFLAGS_PROD := -ldflags "-s -w -X main.IS_PROD=TRUE  -X main.PORT=:8000" -trimpath -buildvcs=false
 GOFLAGS_DEV  := -ldflags "-X main.IS_PROD=FALSE -X main.PORT=:8000" -trimpath -buildvcs=false
 
-.PHONY: run build release
+.PHONY: run build release gen-credits
 
 APP_NAME := OpenMediaCloud
 BUILD := ./bin
@@ -12,6 +12,9 @@ ENTRY := ./cmd/
 
 run:
 	$(GOC) run $(GOFLAGS_DEV) $(ENTRY)
+
+gen-credits:
+	go-licenses report ./cmd/ > CREDITS
 
 build:
 	mkdir -p $(BUILD)
